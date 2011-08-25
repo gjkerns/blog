@@ -7,7 +7,7 @@
 layout: postsmath
 title: Estimating a normal mean with a cauchy prior
 excerpt: This is an example (with a Bayesian spin) illustrating one way to compute a complicated expectation (that is, an integral) by the Monte Carlo method. 
-id: first
+categories: R
 ---
 #+END_HTML
 
