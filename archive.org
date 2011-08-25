@@ -1,0 +1,25 @@
+#+STARTUP: showall indent
+#+STARTUP: hidestars
+#+BEGIN_HTML
+---
+layout: default
+title: Statistics, plain and sample.
+---
+
+No frills.  No shenanigans.  Just statistics.
+<hr/>
+
+<h2>Archive</h2>
+<ul> {% for post in site.posts %} 
+  <li> 
+    <a href="{{ post.url }}" title="{{ post.title }}"> 
+      <span class="date"> 
+        <span class="day">{{ post.date | date: '%d' }}</span> 
+        <span class="month"><abbr>{{ post.date | date: '%b' }}</abbr></span> 
+        <span class="year">{{ post.date | date: '%Y' }}</span> 
+      </span> 
+      <span class="title">{{ post.title }}</span>
+    </a> 
+  </li> {% endfor %}
+</ul> 
+#+END_HTML
