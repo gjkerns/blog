@@ -106,12 +106,20 @@ Now we plot the results.
 #+LABEL:      fig:yplot
 #+ATTR_LaTeX: width=6in, height=6in, placement=[h!]
 #+begin_src R :exports both :results output graphics :file ../images/110824.png
-par(mfrow = c(1,2))
-plot(3:200, rpm[3:200], type = "l", ylim = c(0, 2.7), main = "First 200")
-lines(3:200, rc[3:200], type = "l")
-plot(1:m, rpm, type = "l", ylim = c(0, 2.7), main = "All 2000")
-lines(1:m, rc, type = "l")
-par(mfrow = c(1,1))
+A <- data.frame(iter = 1:m, rc = rc, rpm=rpm)
+library(reshape)
+A.short <- melt(A[3:200, ], id="iter")
+a <- ggplot(A.short, aes(iter, value, colour=variable)) + geom_line() +
+      opts(title = "First 200")
+A.long <- melt(A, id="iter")
+b <- ggplot(A.long, aes(iter, value, colour=variable)) + geom_line() +
+      opts(title = "All 2000 iterations")
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(1, 2, widths = unit(c(3,5),"null"))))
+vplayout <- function(x, y)
+viewport(layout.pos.row = x, layout.pos.col = y)
+print(a, vp = vplayout(1, 1))
+print(b, vp = vplayout(1, 2))
 #+end_src
 
 In this example, the estimates look to be still unstable at around =m = 200=, but by the time we reach =m = 2000= they look to have pretty much settled down.  Here we knew what the true values were, so we could tell immediately how well we were doing.  On the battlefield we are not so lucky.  In general, with Monte Carlo estimates like these it is wise to take a look at some plots to judge the behavior of our estimators.  If our plot looks more like the one on the left, then we should consider increasing the sample size.  If our plot looks more like the one on the right, then maybe we would be satisfied with "close enough". (We can always wait longer, tight purse-strings notwithstanding.)
