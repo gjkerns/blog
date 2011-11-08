@@ -21,4 +21,4 @@ No frills.  No shenanigans.  Just statistics.
 
 #+END_HTML
 
-* [[file:archive.org][Older posts]]
+* [[file:archive.org][Archive]]
