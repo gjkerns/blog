@@ -1,0 +1,178 @@
+#+TITLE:     Power/Sample Size for Repeated Measures ANOVA in R 
+#+AUTHOR:    G. Jay Kerns
+#+EMAIL:     gkerns@ysu.edu
+#+DATE:      2012-01-13 Fri
+#+DESCRIPTION:
+#+KEYWORDS:
+#+LANGUAGE:  en
+#+OPTIONS:   H:3 num:nil toc:nil \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS:   TeX:t LaTeX:t skip:nil d:nil todo:t pri:nil tags:not-in-toc
+#+PROPERTY: session *R*
+#+PROPERTY: results output
+#+PROPERTY: cache yes
+
+* Background
+One of my colleagues is an academic physical therapist (PT), and he's working on a paper to his colleagues related to power, sample size, and navigating the thicket of trouble that surrounds those two things.  We recently got together to walk through some of the issues, and I thought I would share some of the wildlife we observed along the way.  If you just want the code and don't care about the long-winded discussion, see [[https://gist.github.com/1608265][this gist on GitHub]]. 
+
+* The problem
+Suppose you are a PT, and you've come up with a brand new exercise method that you think will decrease neck pain, say. How can you demonstrate that your method is effective?  Of course, you collect data and show that people using your method have significantly lower neck pain than those from a control group. 
+
+The standard approach in the field to analyze said data is repeated measures ANOVA. (Yes, those guys should really be using mixed-effects models, but those haven't quite taken off yet in that body of literature.) There are two groups: the "Treatment" group does your new exercise method, and a "Sham" group does nothing (or just the placebo exercise method).  For each Subject, you measure their pain at time 0, 15 minutes, 48 hours, and 96 hours.  Pain is measured by an index (there are several); the one we're using is something called NDI, which stands for "Neck Disability Index".  The index ranges from 0 to 100 (more on this later).  There is some brief information about the index [[http://www.chiro.org/LINKS/OUTCOME/Painter_1.shtml][here]].
+
+Now comes the question: how many people should you recruit for your study?  The answer is: it depends.  "On what?", you ask.  Well, it depends on how good the statistical test is, and how good your routine is, but more to the point, it depends on /the effect size/, that is, how far apart the two groups are, given that the routine actually works.
+
+I encounter some variant of this question a lot.  I used to go look for research papers where somebody's worked out the F-test and sample sizes required, and pore over tables and tables.  Then I resorted to online calculators (my department couldn't afford the proprietary software alternatives!), which are fine, but they all use different notation and it takes a substantial amount of time poring through documentation (which is often poor, pardon the pun) to recall how it works.  And I was never really sure whether I'd got it right, or if I had screwed up with a parameter somewhere.
+
+Moreover, some of the calculators advertise /Cohen's effect sizes/, which are usually stated something like "small", "medium", and "large", with accompanying numerical values.  [[http://www.stat.uiowa.edu/~rlenth/Power/][Russell Lenth]] calls these "T-shirt effect sizes", and I agree with that assessment.
+
+Nowadays people say, "Just run a simulation and estimate the power,"  but the posts on the mailing lists and fora are scant on details.  So my buddy and I worked out the details from start to finish for this simple example, in the hopes that by sharing this information people can get a better idea of how to do it the *right* way, the *first* time.
+
+* How to attack it
+
+*The avenue of attack is simple:* for a given sample size,
+1. use prior research and practitioner experience to decide what difference would be "meaningful" to detect,
+2. simulate data consistent with the above difference and run the desired statistical test to see whether or not it rejected, and
+3. repeat step 2 hundreds of times.  An estimate of the power (for that sample size) is the proportion of times that the test rejected.
+
+If the power isn't high enough, then increase the given sample size and start over.  The value we get is just an /estimate/ of the power, but we can increase the precision of our estimate by increasing the number of repetitions in step 3.
+
+What you find when you start down this path is that there is a *lot* of information required to be able to answer the question.  Of course, this information had been hiding behind the scenes all along, even with those old research papers and online calculators, but the other methods make it easy to gloss over the details, or they're so complicated that researchers will give up and fall back to something like Cohen's T-shirt effect sizes.  Bad idea.
+
+* Now for the legwork
+
+The details we need to fill in have many parts, which include: A) prior knowledge of how average pain decreases for people in the =Sham= group, B) some idea about the variability of scores, C) how scores would be correlated with one another over time, and D) how much better the =Treat= group would need to be in order for the new procedure to be considered meaningful (in a clinical sense).
+
+As a first step, the PT sat down and filled in the following table.
+
+|       | 0 hrs | 15 min | 48 hrs | 96 hrs |
+| Treat |    37 |     32 |     20 |     15 |
+| Sham  |    37 |     32 |     25 |     22 |
+
+All of the entries in the above table represent (population) mean NDI scores for people in the respective groups at the respective measurement times, and were filled in based on prior research and educated guesses by the PT.  It was known from other studies that NDI scores have a standard deviation of around 12.
+
+*Note:* we could have assumed a simpler model for the means.  For example, we could have assumed that mean NDI was linear, with possibly different slopes/intercepts for the Treat/Sham groups.  Prior info available to the PT said that such an assumption wasn't reasonable for this example.
+
+The PT stated that it was reasonable to expect that the errors within groups were correlated, but little research has been done to determine the exact nature of that correlation.  After some discussion, we settled on an autoregressive model AR(1) for the errors, with a correlation of \(\rho = 0.25\).  Here, again, we could have put forward a more complicated model, but that would have meant more parameters and consequently more reliance on prior research that hasn't been done.
+
+* Finally we do some coding
+
+We are now ready to turn on the computer.  We first intialize the parameters we'll need, next we set up the independent variable data, then we do the simulation, and finally we rinse-and-repeat.  Let's go.
+
+#+begin_src R :exports code
+set.seed(1)
+nPerGroup <- 10
+nTime     <- 4
+muTreat   <- c(37, 32, 20, 15)
+muSham    <- c(37, 32, 25, 22)
+stdev     <- 12
+rho       <- 0.25
+nSim      <- 500
+#+end_src
+
+All of the above should be self-explanatory. Next comes setting up the data for the independent variables (these are fixed across simulations).  Just for the sake of argument I used code to generate the data frame, but we wouldn't have had to.  We could even have imported an external text file, had we wished.
+
+#+begin_src R :exports code
+Subject <- factor(1:(nPerGroup*2))
+Time <- factor(1:nTime, labels = c("0min", "15min", "48hrs", "96hrs"))
+
+designMat <- expand.grid(Time, Subject)
+names(designMat) <- c("Time", "Subject")
+
+Method <- rep(c("Treat", "Sham"), times = nPerGroup, each = nTime)
+Method <- factor(Method)
+designMat$Method <- Method
+#+end_src
+
+Again, the above should be self-explanatory for the most part.  The data are in "long" form, where each subject appears over multiple rows.  In fact, let's take a look at the data frame to make sure it looks right.
+
+#+begin_src R :exports both
+head(designMat)
+#+end_src
+
+Lookin' good.  Now for the fun part. We generate the single remaining column, the NDI scores.  We are using an AR(1) model, which we simulate with the =arima.sim= function.  We've alternated the Treat/Sham groups so we alternate simulations for each.  The following gets the job done (yes, this can be faster, feel free to chime in with a comment):
+
+#+begin_src R :exports code
+NDI <- c()
+for (k in seq_len(nPerGroup)){
+  tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muTreat
+  NDI <- c(NDI, tmp)
+  tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muSham
+  NDI <- c(NDI, tmp)  
+}
+theData <- cbind(designMat, NDI)
+#+end_src
+
+Now we have our data, we can do the test:
+#+begin_src R :exports both
+aovComp <- aov(NDI ~ Time*Method + Error(Subject/Time), theData)
+summary(aovComp)
+#+end_src
+
+Terrific!  For these data, we observe a highly significant =Time= effect (this should be obvious given our table above), an insignificant =Method= fixed effect, but a marginally significant =Time:Method= interaction.  If we think about our model and what we're interested in, it's the interaction which is important and that which we'd like to detect.  If our significance level had been \(\alpha = 0.05\), we would not have rejected this time, but it was pretty close.
+
+Now it's time to rinse-and-repeat, which we accomplish with the =replicate= function.  Before we get there, though, let's look at a plot (there are several relevant ones, but in the interest of brevity let's satisfy ourselves with an =interaction.plot=):
+
+#+begin_src R :exports both :results graphics :file interact.png
+with(theData, interaction.plot(Time, Method, NDI))
+#+end_src
+
+Everything is going according to plan.  There is definitely a =Time= effect (the lines both slope downward) and there is evidence of an interaction (the lines have different slopes).
+
+On to rinse-and-repeat, we first set up the function that runs the test once:
+
+#+begin_src R :exports code
+runTest <- function(){
+  NDI <- c()
+  for (k in 1:nPerGroup){
+    tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muTreat
+    NDI <- c(NDI, tmp)
+    tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muSham
+    NDI <- c(NDI, tmp)  
+  }
+  theData <- cbind(designMat, NDI) 
+  aovComp <- aov(NDI ~ Time*Method + Error(Subject/Time), theData)  
+  b <- summary(aovComp)$'Error: Subject:Time'[[1]][2,5]
+  b < 0.05
+}
+#+end_src
+
+and finally do the repeating:
+
+#+begin_src R :exports both
+mean(replicate(nSim, runTest()))
+#+end_src
+
+Whoa!  The power is 0.152?  That's terribly low.  We recall that this is just an /estimate/ of power - how precise is the estimate?  The standard error of \(\hat{p}\) is approximately \(\sqrt{\hat{p}(1 - \hat{p})/n}\), so in our case, our estimate's standard error is approximately 0.016. That means we are approximately 95% confident that the true power at this particular alternative is covered by the interval \([0.12,0.184]\).
+
+Standard practice is to shoot for a power of around \(\beta = 0.80\), so our power isn't even close to what we'd need.  We can increase power by increasing sample size (the parameter =nPerGroup=).  A larger sample size means a longer time needed to run the simulation.  Below are some results of running the above script at assorted sample sizes.
+
+| =nPerGroup= | Power (estimate) | SE (approx) |
+|          10 |            0.152 |       0.016 |
+|          20 |            0.248 |       0.019 |
+|          40 |            0.490 |       0.022 |
+|          80 |            0.780 |       0.019 |
+
+Now we're talking.  It looks like somewhere slightly over 80 subjects per group would be enough to detect the clinically meaningful difference proposed above with a power of 0.80.
+
+Unfortunately, the joke is on us.  Because, as it happens, there is no way in /Hades/ that a practicing PT (around here) is going to recruit a whopping 160 subjects for a research study.  It simply doesn't happen, and it isn't going to happen anytime soon.  A person is lucky to recruit 30 subjects per group, and even then there will be dropout, people not showing up for subsequent appointments.
+
+*So what can we do?*
+1. *Change the research design.*  If we take a second look at the table, there isn't an expected difference in means until 48 hours, so why not measure differently, say, at 0, 48, 96, and 144 hours?
+2. *Take a second look at the assumptions.*  We are assuming that standard deviation stays constant at 12, but is that really the best guess?  (No.  There is evidence in the literature that the standard deviation decreases over time which we neglected to reflect in our model.)
+3. *Use a different test.*  We are going with boilerplate repeated-measures ANOVA here.  Is that really the best choice?  What would happen if we tried the mixed-effects approach?
+
+* Other things to keep in mind
+- This example is simple enough to solve analytically; we didn't have to use simulation at all.
+- Even if the example hadn't been simple enough (it happens), we could still shoot for an /approximate/ analytic solution which, if nothing else, might give some insight into the behavior of the power function as the parameters vary and might provide reasonable initial guesses for the parameters in the absence of external prior information.
+- We didn't bother with contrasts, functional form for the means, or anything else.  We simply generated data consistent with the null and desired alternative and went on with our business.  In this way, the simulation approach is simpler than the analytical approach.
+- The specific values of the means didn't actually matter.  We could have adjusted all the means upward by 7 and nothing would have changed.  We based our initial values on literature review and clinical expertise which made our lives easier.
+- We could have used whatever test we liked, the method of attack would have been the same and would have given similarly valid power estimates.  Multiple comparisons, nested tests, nonparametric tests, whatever.  As long as we include the full procedure in =runTest=, we will get accurate estimates of power for that procedure.
+- We need to be careful that the test we use (whatever it is) has a significance level that is controlled.  This is easy to check, though.  We just set the means to be equal (across time) and run the simulation.  We should get a power equal to 0.05 (within margin of error).  Go ahead, check yourself.  In fact, since we're checking interaction only, we could even offset the means (over time) to any fixed number, not necessarily zero.
+- The main reason the joke was on us was because the standard deviation of 12 is so large that it conceals the expected difference in means.  With such high variability it should be no surprise that it takes a large sample to discern such a slight difference in means that is postponed to the final two time points.
+- Careful readers will have already noticed that the large standard deviation has an unintended consequence: some of our simulated values (particularly at the later time points) will fall below zero.  This isn't reasonable, of course, because the NDI is restricted to the values 0 - 100.  One way to avoid this would be to truncate values to zero (not very reasonable) but another way would be to incorporate a decreasing standard deviation over time, which is actually supported in the literature.
+- *Simulation is not a silver bullet.* 
+- Simulation requires a substantial amount of thought/input into both the simulation model and the initial guesses for the parameters.
+- The number of parameters can get out of control quickly, and simulation times can be lengthy. The more complicated the model and/or test, the more computing resources required.
+- Simulation needs a lot of literature review to be able to say anything intelligent. Some researchers are unable (due to lack of existing/quality studies) or unwilling (for all sorts of reasons, not all of which are good) to help the statistician fill in the details.  For the statistician, this is a problem.  If you don't know anything, then you can't say anything.
+- We can address uncertainty in our parameter guesses with prior distributions on the parameters.  This adds a layer of complexity to the simulation since we must first simulate the parameters before simulating the data.  Sometimes we have no other choice. 
+- We know from our theory that the standard research designs (including our current one) can be re-parameterized by a single non-centrality parameter which ultimately determines the power at any particular alternative. Following our nose, it suggests that our problem is simpler than we're making it, that if we would just write down what the non-centrality parameter is (and could figure out the right numerator/denominator degrees of freedom), we'd be all set.  Yep, we would.  Good luck with all... that.
