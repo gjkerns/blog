@@ -1,4 +1,4 @@
-#+TITLE:     Power/Sample Size for Repeated Measures ANOVA in R 
+#+TITLE:     Power/Sample Size for Repeated Measures ANOVA with R 
 #+AUTHOR:    G. Jay Kerns
 #+EMAIL:     gkerns@ysu.edu
 #+DATE:      2012-01-13 Fri
@@ -48,11 +48,11 @@ As a first step, the PT sat down and filled in the following table.
 | Treat |    37 |     32 |     20 |     15 |
 | Sham  |    37 |     32 |     25 |     22 |
 
-All of the entries in the above table represent (population) mean NDI scores for people in the respective groups at the respective measurement times, and were filled in based on prior research and educated guesses by the PT.  It was known from other studies that NDI scores have a standard deviation of around 12.
+All of the entries in the above table represent (population) mean NDI scores for people in the respective groups at the respective measurement times, and were filled in based on prior research and educated guesses by the PT.  It was known from other studies that NDI scores have a standard deviation of around 12, and we expect those to decrease over time.
 
 *Note:* we could have assumed a simpler model for the means.  For example, we could have assumed that mean NDI was linear, with possibly different slopes/intercepts for the Treat/Sham groups.  Prior info available to the PT said that such an assumption wasn't reasonable for this example.
 
-The PT stated that it was reasonable to expect that the errors within groups were correlated, but little research has been done to determine the exact nature of that correlation.  After some discussion, we settled on an autoregressive model AR(1) for the errors, with a correlation of \(\rho = 0.25\).  Here, again, we could have put forward a more complicated model, but that would have meant more parameters and consequently more reliance on prior research that hasn't been done.
+Repeated measures designs assume sphericity (for the exact /F/ tests to hold) so we need to specify a variance for the differences, \(\mathrm{Var}(X_{i} - X_{j})\), and sphericity says this variance should be the same for all time points $i$ and $j$.  This choice implicitly determines all of the remaining covariance structure. We set this standard deviation to $9$.
 
 * Finally we do some coding
 
@@ -64,51 +64,55 @@ nPerGroup <- 10
 nTime     <- 4
 muTreat   <- c(37, 32, 20, 15)
 muSham    <- c(37, 32, 25, 22)
-stdev     <- 12
-rho       <- 0.25
+stdevs    <- c(12, 10, 8, 6)
+stdiff    <- 9
 nSim      <- 500
 #+end_src
 
-All of the above should be self-explanatory. Next comes setting up the data for the independent variables (these are fixed across simulations).  Just for the sake of argument I used code to generate the data frame, but we wouldn't have had to.  We could even have imported an external text file, had we wished.
+All of the above should be self-explanatory. Next comes setting up the data - creatively named =theData= - for the independent variables (these are fixed across simulations).  Just for the sake of argument I used code to generate the data frame, but we wouldn't have had to.  We could even have imported an external text file, had we wished.
 
 #+begin_src R :exports code
 Subject <- factor(1:(nPerGroup*2))
 Time <- factor(1:nTime, labels = c("0min", "15min", "48hrs", "96hrs"))
 
-designMat <- expand.grid(Time, Subject)
-names(designMat) <- c("Time", "Subject")
+theData <- expand.grid(Time, Subject)
+names(theData) <- c("Time", "Subject")
 
-Method <- rep(c("Treat", "Sham"), times = nPerGroup, each = nTime)
-Method <- factor(Method)
-designMat$Method <- Method
+tmp <- rep(c("Treat", "Sham"), each = nPerGroup * nTime)
+theData$Method <- factor(tmp)
 #+end_src
 
 Again, the above should be self-explanatory for the most part.  The data are in "long" form, where each subject appears over multiple rows.  In fact, let's take a look at the data frame to make sure it looks right.
 
 #+begin_src R :exports both
-head(designMat)
+head(theData)
 #+end_src
 
-Lookin' good.  Now for the fun part. We generate the single remaining column, the NDI scores.  We are using an AR(1) model, which we simulate with the =arima.sim= function.  We've alternated the Treat/Sham groups so we alternate simulations for each.  The following gets the job done (yes, this can be faster, feel free to chime in with a comment):
+Lookin' good.  Now for the fun part. We generate the single remaining column, the NDI scores.  The repeated measures model is multivariate normal.  The population covariance matrix is a little bit tricky, but it's not too bad and to make things easy we'll assume both groups have the same covariance.  See [[http://www.jstor.org/stable/2284340][the original paper by Huynh and Feldt]] for details.
 
 #+begin_src R :exports code
-NDI <- c()
-for (k in seq_len(nPerGroup)){
-  tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muTreat
-  NDI <- c(NDI, tmp)
-  tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muSham
-  NDI <- c(NDI, tmp)  
-}
-theData <- cbind(designMat, NDI)
+# to set up variance-covariance matrix
+ones <- rep(1, nTime)
+A <- stdevs^2 %o% ones
+B <- (A + t(A) + (stdiff^2)*(diag(nTime) - ones %o% ones))/2
 #+end_src
 
-Now we have our data, we can do the test:
+We simulate with the =mvrnorm= function from the =MASS= package.
+
+#+begin_src R :exports code
+library(MASS)
+tmp1 <- mvrnorm(nPerGroup, mu = muTreat, Sigma = B)
+tmp2 <- mvrnorm(nPerGroup, mu = muSham, Sigma = B)
+theData$NDI <- c(as.vector(t(tmp1)), as.vector(t(tmp2)))
+#+end_src
+
+Now that we have our data, we can run the test:
 #+begin_src R :exports both
 aovComp <- aov(NDI ~ Time*Method + Error(Subject/Time), theData)
 summary(aovComp)
 #+end_src
 
-Terrific!  For these data, we observe a highly significant =Time= effect (this should be obvious given our table above), an insignificant =Method= fixed effect, but a marginally significant =Time:Method= interaction.  If we think about our model and what we're interested in, it's the interaction which is important and that which we'd like to detect.  If our significance level had been \(\alpha = 0.05\), we would not have rejected this time, but it was pretty close.
+Terrific!  For these data, we observe a highly significant =Time= effect (this should be obvious given our table above), an insignificant =Method= fixed effect, and an insignificant =Time:Method= interaction.  If we think about our model and what we're interested in, it's the interaction which we care about and that which we'd like to detect.  If our significance level had been \(\alpha = 0.05\), we would not have rejected this time, but who knows what would happen next time.
 
 Now it's time to rinse-and-repeat, which we accomplish with the =replicate= function.  Before we get there, though, let's look at a plot (there are several relevant ones, but in the interest of brevity let's satisfy ourselves with an =interaction.plot=):
 
@@ -116,20 +120,15 @@ Now it's time to rinse-and-repeat, which we accomplish with the =replicate= func
 with(theData, interaction.plot(Time, Method, NDI))
 #+end_src
 
-Everything is going according to plan.  There is definitely a =Time= effect (the lines both slope downward) and there is evidence of an interaction (the lines have different slopes).
+Everything is going according to plan.  There is definitely a =Time= effect (the lines both slope downward) but there isn't any evidence of an interaction (the lines have similar slopes).
 
 On to rinse-and-repeat, we first set up the function that runs the test once:
 
 #+begin_src R :exports code
 runTest <- function(){
-  NDI <- c()
-  for (k in 1:nPerGroup){
-    tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muTreat
-    NDI <- c(NDI, tmp)
-    tmp <- arima.sim(n = nTime, list(ar = rho), sd = stdev) + muSham
-    NDI <- c(NDI, tmp)  
-  }
-  theData <- cbind(designMat, NDI) 
+  tmp1 <- mvrnorm(nPerGroup, mu = muTreat, Sigma = B)
+  tmp2 <- mvrnorm(nPerGroup, mu = muSham, Sigma = B)
+  theData$NDI <- c(as.vector(t(tmp1)), as.vector(t(tmp2)))
   aovComp <- aov(NDI ~ Time*Method + Error(Subject/Time), theData)  
   b <- summary(aovComp)$'Error: Subject:Time'[[1]][2,5]
   b < 0.05
@@ -142,37 +141,49 @@ and finally do the repeating:
 mean(replicate(nSim, runTest()))
 #+end_src
 
-Whoa!  The power is 0.152?  That's terribly low.  We recall that this is just an /estimate/ of power - how precise is the estimate?  The standard error of \(\hat{p}\) is approximately \(\sqrt{\hat{p}(1 - \hat{p})/n}\), so in our case, our estimate's standard error is approximately 0.016. That means we are approximately 95% confident that the true power at this particular alternative is covered by the interval \([0.12,0.184]\).
+Whoa!  The power is 0.382?  That's pretty low.  We recall that this is just an /estimate/ of power - how precise is the estimate?  The standard error of \(\hat{p}\) is approximately \(\sqrt{\hat{p}(1 - \hat{p})/n}\), so in our case, our estimate's standard error is approximately 0.022. That means we are approximately 95% confident that the true power at this particular alternative is covered by the interval \([0.339,0.425]\).
 
 Standard practice is to shoot for a power of around \(\beta = 0.80\), so our power isn't even close to what we'd need.  We can increase power by increasing sample size (the parameter =nPerGroup=).  A larger sample size means a longer time needed to run the simulation.  Below are some results of running the above script at assorted sample sizes.
 
 | =nPerGroup= | Power (estimate) | SE (approx) |
-|          10 |            0.152 |       0.016 |
-|          20 |            0.248 |       0.019 |
-|          40 |            0.490 |       0.022 |
-|          80 |            0.780 |       0.019 |
+|          10 |            0.382 |       0.022 |
+|          20 |            0.686 |       0.021 |
+|          30 |            0.886 |       0.014 |
 
-Now we're talking.  It looks like somewhere slightly over 80 subjects per group would be enough to detect the clinically meaningful difference proposed above with a power of 0.80.
+Now we're talking.  It looks like somewhere between 20 and 30 subjects per group would be enough to detect the clinically meaningful difference proposed above with a power of 0.80.
 
-Unfortunately, the joke is on us.  Because, as it happens, there is no way in /Hades/ that a practicing PT (around here) is going to recruit a whopping 160 subjects for a research study.  It simply doesn't happen, and it isn't going to happen anytime soon.  A person is lucky to recruit 30 subjects per group, and even then there will be dropout, people not showing up for subsequent appointments.
+Unfortunately, the joke was on us.  Because, as it happens, it's no small order for a practicing PT (around here) to snare 60 humans with neck pain for a research study. A person would need to be in (or travel to) a heavily populated area, and even then there would be dropout, people not showing up for subsequent appointments.  
 
 *So what can we do?*
-1. *Change the research design.*  If we take a second look at the table, there isn't an expected difference in means until 48 hours, so why not measure differently, say, at 0, 48, 96, and 144 hours?
-2. *Take a second look at the assumptions.*  We are assuming that standard deviation stays constant at 12, but is that really the best guess?  (No.  There is evidence in the literature that the standard deviation decreases over time which we neglected to reflect in our model.)
-3. *Use a different test.*  We are going with boilerplate repeated-measures ANOVA here.  Is that really the best choice?  What would happen if we tried the mixed-effects approach?
+1. *Modify the research details.*  If we take a closer look at the table, there isn't an expected difference in the means until 48 hours, so why not measure differently, say, at 0, 48, 96, and 144 hours?  Is there something about the measurement process we could change to decrease the variance?
+2. *Use a different test.*  We are going with boilerplate repeated-measures ANOVA here.  Is that really the best choice?  What would happen if we tried the mixed-effects approach?
+3. *Take a second look at the model.*  We should not only double-check our parameter choices, but rethink: is the repeated-measures model the most appropriate?  Is it reasonable for the variance of differences at all time pairs to be identical?  There are other covariance structures we could try, such as an autoregressive model (another arrow in the mixed-effects models' quiver). 
 
 * Other things to keep in mind
-- This example is simple enough to solve analytically; we didn't have to use simulation at all.
-- Even if the example hadn't been simple enough (it happens), we could still shoot for an /approximate/ analytic solution which, if nothing else, might give some insight into the behavior of the power function as the parameters vary and might provide reasonable initial guesses for the parameters in the absence of external prior information.
-- We didn't bother with contrasts, functional form for the means, or anything else.  We simply generated data consistent with the null and desired alternative and went on with our business.  In this way, the simulation approach is simpler than the analytical approach.
-- The specific values of the means didn't actually matter.  We could have adjusted all the means upward by 7 and nothing would have changed.  We based our initial values on literature review and clinical expertise which made our lives easier.
-- We could have used whatever test we liked, the method of attack would have been the same and would have given similarly valid power estimates.  Multiple comparisons, nested tests, nonparametric tests, whatever.  As long as we include the full procedure in =runTest=, we will get accurate estimates of power for that procedure.
-- We need to be careful that the test we use (whatever it is) has a significance level that is controlled.  This is easy to check, though.  We just set the means to be equal (across time) and run the simulation.  We should get a power equal to 0.05 (within margin of error).  Go ahead, check yourself.  In fact, since we're checking interaction only, we could even offset the means (over time) to any fixed number, not necessarily zero.
-- The main reason the joke was on us was because the standard deviation of 12 is so large that it conceals the expected difference in means.  With such high variability it should be no surprise that it takes a large sample to discern such a slight difference in means that is postponed to the final two time points.
-- Careful readers will have already noticed that the large standard deviation has an unintended consequence: some of our simulated values (particularly at the later time points) will fall below zero.  This isn't reasonable, of course, because the NDI is restricted to the values 0 - 100.  One way to avoid this would be to truncate values to zero (not very reasonable) but another way would be to incorporate a decreasing standard deviation over time, which is actually supported in the literature.
+- This example is simple enough to have done analytically; we didn't have to simulate anything at all.
+- Even if the example hadn't been simple, we could still have searched for an /approximate/ analytic solution which, if nothing else, might have given some insight into the power function's behavior.
+- We didn't bother with contrasts, functional means, or anything else.  We just generated data consistent with our null and salient alternative and went on with our business.
+- We could have adjusted all the means upward by 7 and nothing would have changed.  We based our initial values on literature review and clinical expertise which made our lives easier.
+- We could have used whatever test we liked, the method of attack would have been the same.  Multiple comparisons, nested tests, nonparametric tests, whatever.  As long as we include the full procedure in =runTest=, we will get valid estimates of power for that procedure.
+- We need to be careful that the test we use (whatever it is) has its significance level controlled.  This is easy to check in our example.  We can set the means equal (=muTreat= = =muSham=) and run the simulation.  We should get a power equal to 0.05 (within margin of error).  Go ahead, check yourself. In fact, since we only care about the interaction, we could vertically offset the means by any fixed number, not necessarily zero.
 - *Simulation is not a silver bullet.* 
-- Simulation requires a substantial amount of thought/input into both the simulation model and the initial guesses for the parameters.
-- The number of parameters can get out of control quickly, and simulation times can be lengthy. The more complicated the model and/or test, the more computing resources required.
-- Simulation needs a lot of literature review to be able to say anything intelligent. Some researchers are unable (due to lack of existing/quality studies) or unwilling (for all sorts of reasons, not all of which are good) to help the statistician fill in the details.  For the statistician, this is a problem.  If you don't know anything, then you can't say anything.
-- We can address uncertainty in our parameter guesses with prior distributions on the parameters.  This adds a layer of complexity to the simulation since we must first simulate the parameters before simulating the data.  Sometimes we have no other choice. 
-- We know from our theory that the standard research designs (including our current one) can be re-parameterized by a single non-centrality parameter which ultimately determines the power at any particular alternative. Following our nose, it suggests that our problem is simpler than we're making it, that if we would just write down what the non-centrality parameter is (and could figure out the right numerator/denominator degrees of freedom), we'd be all set.  Yep, we would.  Good luck with all... that.
+- Simulation requires a substantial investment of thought into both the probability model and the parameter settings.
+- Our model had 13 parameters, and we had 4 more we didn't even touch[fn:1]. A person could be forgiven for wondering how in the world all of those parameters can be substantively spun into a T-shirt effect size. (They can't.)
+- The complexity can get out of control quickly. Simulation run times can take forever.  The more complicated the model and/or test the worse it gets.
+- Informative simulation demands literature review and content expertise as a prerequisite. Some researchers are unable (due to lack of existing/quality studies) or unwilling (for all sorts of reasons, not all of which are good) to help the statistician fill in the details.  For the statistician, this is a problem.  If you don't know anything, then you can't say anything.
+- We can address uncertainty in our parameter guesses with prior distributions on the parameters.  This adds a layer of complexity to the simulation since we must first simulate the parameters before simulating the data.  Sometimes there's no other choice. 
+- Theory tells us that the standard research designs (including our current one) can usually be re-parameterized by a single non-centrality parameter which ultimately determines the power at any particular alternative. Following our nose, it suggests that our problem is simpler than we're making it, that if we would just write down the non-centrality parameter (and the right numerator/denominator degrees of freedom), we'd be all set.  Yep, we would.  Good luck with all... that.
+
+[fn:1]   John von Neumann once said, "With four parameters I can fit an elephant, and with five I can make him wiggle his trunk."  
+
+* References
+
+- /Conditions Under Which Mean Square Ratios in Repeated Measurements Designs Have Exact F-Distributions/. Huynh Huynh and Leonard S. Feldt, Journal of the American Statistical Association, Vol. 65, No. 332 (Dec., 1970), pp. 1582-1589, [[http://www.jstor.org/stable/2284340][stable link]]
+
+- I found [[http://personality-project.org/r/r.anova.html][this website]] while preparing for the initial meeting and got some inspiration from the discussion near the middle.
+
+- I also like [[http://onlinelibrary.wiley.com/doi/10.1348/000711001159357/abstract][this paper]].  Keselman, H. J., Algina, J. and Kowalchuk, R. K. (2001), /The analysis of repeated measures designs: A review./ British Journal of Mathematical and Statistical Psychology, 54: 1–20. doi: 10.1348/000711001159357
+
+#+begin_src R :exports results
+sessionInfo()
+#+end_src
