@@ -1,10 +1,17 @@
+---
+title: "Maiden Voyage"
+description: "A mission statement, of sorts."
+author: "G. Jay Kerns"
+date: "2011-08-23"
+categories: [news, code]
+image: "skiddaw.png"
+---
 
+-   **What:** I want this blog to be about statistics, plain and sample. No frills, no tomfoolery, just bare-boned statistics from beginning to end. Plus Emacs, ESS, Org-Mode, and R, but that goes without saying.
 
--   What I want this blog to be about statistics, plain and sample. No frills, no tomfoolery, just bare-boned statistics from beginning to end. Plus Emacs, ESS, Org-Mode, and R, but that goes without saying.
+-   **When:** I've wanted to do this for a long time, but had as of yet convinced myself that I didn't have time for it. A sabbatical coupled with the renewed energy of a [use R! conference](http://www.warwick.ac.uk/statsdept/user-2011/) can change things considerably.
 
--   When I've wanted to do this for a long time, but had as of yet convinced myself that I didn't have time for it. A sabbatical coupled with the renewed energy of a \[\[http://www.warwick.ac.uk/statsdept/user-2011/\]\[use R! conference\]\] can change things considerably.
-
--   Emacs + Org mode + Jekyll + Github = Blog + R! After much fiddling and googling I have managed to figure out how to run a blog entirely through Emacs and Git. If you'd like to do the same I recommend reading \[\[http://orgmode.org/worg/org-tutorials/org-jekyll.html\]\[here\]\] and \[\[http://vitobotta.com/how-to-migrate-from-wordpress-to-jekyll/\]\[here\]\], with liberal doses of \[\[http://blog.envylabs.com/2009/08/publishing-a-blog-with-github-pages-and-jekyll/\]\[here\]\] and \[\[https://github.com/mojombo/jekyll\]\[here\]\]. Ultimately, if you'd like to know how I do it then you can find the org-mode source code for this blog \[\[https://github.com/gjkerns/blog\]\[here\]\] and you can download the final result \[\[https://github.com/gjkerns/gjkerns.github.com\]\[here\]\] (which still is source code but is as close to final as possible).
+-   **How:** Emacs + Org mode + Jekyll + Github = Blog + R! After much fiddling and googling I have managed to figure out how to run a blog entirely through Emacs and Git. If you'd like to do the same I recommend reading [here](http://orgmode.org/worg/org-tutorials/org-jekyll.html) and [here](http://vitobotta.com/how-to-migrate-from-wordpress-to-jekyll/), with liberal doses of [this](http://blog.envylabs.com/2009/08/publishing-a-blog-with-github-pages-and-jekyll/) and [that](https://github.com/mojombo/jekyll). Ultimately, if you'd like to know how I do it then you can find the org-mode source code for this blog [here](https://github.com/gjkerns/blog) and you can download the final result [here](https://github.com/gjkerns/gjkerns.github.com) (which still is source code but is as close to final as possible).
 
 The bottom line: with this setup I can effortlessly do R code like this:
 
@@ -12,15 +19,15 @@ The bottom line: with this setup I can effortlessly do R code like this:
 rnorm(10)
 ```
 
-
 And can include plots like this:
 
-```{r, echo=FALSE}
-x = rnorm(100) y = rnorm(100) plot(y \~ x)
+```{r}
+#| label: fig-skiddaw
+#| fig-cap: A plot to get things started.
+#| warning: false
+x = rnorm(100) 
+y = rnorm(100)
+plot(y ~ x)
 ```
 
-
-
-#+CAPTION: A plot to get things started #+LABEL: fig:yplot #+ATTR_LaTeX: width=6in, height=6in, placement=\[h!\] #+begin_src R :exports results :results output graphics :file ../images/skiddaw.png  #+end_src
-
-all housed inside a simple, dynamic text file that I can edit with \[\[http://www.gnu.org/software/emacs/\]\[Emacs\]\] and can version-control with \[\[http://git-scm.com/\]\[git\]\]. On top of all this, I get LaTeX formatting in HTML via \[\[http://www.mathjax.org/\]\[MathJax\]\]. Life is good.
+all housed inside a simple, dynamic text file that I can edit with [Emacs](http://www.gnu.org/software/emacs/) and can version-control with [git](http://git-scm.com/). On top of all this, I get LaTeX formatting in HTML via [MathJax](http://www.mathjax.org/). Life is good.
