@@ -1,41 +1,26 @@
-#+STARTUP: showall indent
-#+STARTUP: hidestars
-#+BEGIN_HTML
----
-layout: posts
-title: Maiden voyage
-excerpt: This is the first post. A mission statement, of sorts.
-id: first
----
-#+END_HTML
-* Who
-[[http://people.ysu.edu/~gkerns/][Me]].  I'm an associate professor of Statistics at [[http://web.ysu.edu/stem/math][Youngstown State University]] in [[http://en.wikipedia.org/wiki/Youngstown,_Ohio][Youngstown, Ohio, USA]].  I've been using [[http://www.r-project.org/][R]] for about 7 years,  [[http://www.gnu.org/software/emacs/][Emacs]] about 3 years,  [[http://git-scm.com/][git]] about 1 year, and [[http://orgmode.org/][Org-Mode]] for less than a year.
 
-* What
-I want this blog to be about statistics, plain and sample. No frills, no tomfoolery, just bare-boned statistics from beginning to end.  Plus Emacs, ESS, Org-Mode, and R, but that goes without saying. 
 
-* When
-I've wanted to do this for a long time, but had as of yet convinced myself that I didn't have time for it.  A sabbatical coupled with the renewed energy of a [[http://www.warwick.ac.uk/statsdept/user-2011/][use R! conference]] can change things considerably. 
+-   What I want this blog to be about statistics, plain and sample. No frills, no tomfoolery, just bare-boned statistics from beginning to end. Plus Emacs, ESS, Org-Mode, and R, but that goes without saying.
 
-* Emacs + Org mode + Jekyll + Github = Blog + R!
-After much fiddling and googling I have managed to figure out how to run a blog entirely through Emacs and Git.  If you'd like to do the same I recommend reading [[http://orgmode.org/worg/org-tutorials/org-jekyll.html][here]] and [[http://vitobotta.com/how-to-migrate-from-wordpress-to-jekyll/][here]], with liberal doses of [[http://blog.envylabs.com/2009/08/publishing-a-blog-with-github-pages-and-jekyll/][here]] and [[https://github.com/mojombo/jekyll][here]].  Ultimately, if you'd like to know how I do it then you can find the org-mode source code for this blog [[https://github.com/gjkerns/blog][here]] and you can download the final result [[https://github.com/gjkerns/gjkerns.github.com][here]] (which still is source code but is as close to final as possible).
+-   When I've wanted to do this for a long time, but had as of yet convinced myself that I didn't have time for it. A sabbatical coupled with the renewed energy of a \[\[http://www.warwick.ac.uk/statsdept/user-2011/\]\[use R! conference\]\] can change things considerably.
+
+-   Emacs + Org mode + Jekyll + Github = Blog + R! After much fiddling and googling I have managed to figure out how to run a blog entirely through Emacs and Git. If you'd like to do the same I recommend reading \[\[http://orgmode.org/worg/org-tutorials/org-jekyll.html\]\[here\]\] and \[\[http://vitobotta.com/how-to-migrate-from-wordpress-to-jekyll/\]\[here\]\], with liberal doses of \[\[http://blog.envylabs.com/2009/08/publishing-a-blog-with-github-pages-and-jekyll/\]\[here\]\] and \[\[https://github.com/mojombo/jekyll\]\[here\]\]. Ultimately, if you'd like to know how I do it then you can find the org-mode source code for this blog \[\[https://github.com/gjkerns/blog\]\[here\]\] and you can download the final result \[\[https://github.com/gjkerns/gjkerns.github.com\]\[here\]\] (which still is source code but is as close to final as possible).
 
 The bottom line: with this setup I can effortlessly do R code like this:
 
-#+begin_src R :exports both :results output
+```{r}
 rnorm(10)
-#+end_src
+```
+
 
 And can include plots like this:
 
-#+CAPTION:    A plot to get things started
-#+LABEL:      fig:yplot
-#+ATTR_LaTeX: width=6in, height=6in, placement=[h!]
-#+begin_src R :exports results :results output graphics :file ../images/skiddaw.png
-x = rnorm(100)
-y = rnorm(100)
-plot(y ~ x)
-#+end_src
+```{r, echo=FALSE}
+x = rnorm(100) y = rnorm(100) plot(y \~ x)
+```
 
-all housed inside a simple, dynamic text file that I can edit with [[http://www.gnu.org/software/emacs/][Emacs]] and can version-control with [[http://git-scm.com/][git]].  On top of all this, I get LaTeX formatting in HTML via [[http://www.mathjax.org/][MathJax]].  Life is good.
 
+
+#+CAPTION: A plot to get things started #+LABEL: fig:yplot #+ATTR_LaTeX: width=6in, height=6in, placement=\[h!\] #+begin_src R :exports results :results output graphics :file ../images/skiddaw.png  #+end_src
+
+all housed inside a simple, dynamic text file that I can edit with \[\[http://www.gnu.org/software/emacs/\]\[Emacs\]\] and can version-control with \[\[http://git-scm.com/\]\[git\]\]. On top of all this, I get LaTeX formatting in HTML via \[\[http://www.mathjax.org/\]\[MathJax\]\]. Life is good.
