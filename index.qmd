@@ -1,5 +1,6 @@
 ---
-title: "Statistics, plain and sample."
+title: "Statistics, plain and sample"
+subtitle: "No frills. No shenanigans. Just statistics."
 listing:
   contents: posts
   sort: "date desc"
