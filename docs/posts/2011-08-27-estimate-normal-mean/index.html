@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.189">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="G. Jay Kerns">
+<meta name="dcterms.date" content="2011-08-27">
+<meta name="description" content="This is an example (with a Bayesian spin) illustrating one way to compute a complicated expectation (that is, an integral) by the Monte Carlo method.">
+
+<title>Statistics, plain and sample - Estimating a normal mean with a cauchy prior</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../../styles.css">
+</head>
+
+<body class="nav-fixed fullcontent">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../../index.html">
+    <span class="navbar-title">Statistics, plain and sample</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../../about.html">About</a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/gjkerns"><i class="bi bi-github" role="img">
+</i> 
+ </a>
+  </li>  
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://twitter.com/gkerns"><i class="bi bi-twitter" role="img">
+</i> 
+ </a>
+  </li>  
+</ul>
+              <div id="quarto-search" class="" title="Search"></div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<header id="title-block-header" class="quarto-title-block default page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">Estimating a normal mean with a cauchy prior</h1>
+                  <div>
+        <div class="description">
+          This is an example (with a Bayesian spin) illustrating one way to compute a complicated expectation (that is, an integral) by the Monte Carlo method.
+        </div>
+      </div>
+                          <div class="quarto-categories">
+                <div class="quarto-category">R</div>
+                <div class="quarto-category">code</div>
+                <div class="quarto-category">Bayesian</div>
+              </div>
+                  </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Author</div>
+      <div class="quarto-title-meta-contents">
+               <p>G. Jay Kerns </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">August 27, 2011</p>
+      </div>
+    </div>
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    
+<!-- main -->
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<section id="the-setup" class="level2">
+<h2 class="anchored" data-anchor-id="the-setup">The setup</h2>
+<p>When doing statistics the Bayesian way, we are sometimes bombarded with complicated integrals that do not lend themselves to closed-form solutions. This used to be a problem. Nowadays, not so much. This post illustrates how a person can use the Monte Carlo method (and R) to get a good estimate for an integral that might otherwise look unwieldy at first glance. Of course, in this example, the integral isn’t very complicated. But the /method/ works the same, regardless of the mess in which we find ourselves. The current example is derived from one in <a href="http://www.springer.com/statistics/statistical+theory+and+methods/book/978-0-387-21239-5">Monte Carlo Statistical Methods</a> by Robert/Casella (in Chapter 4). For that matter, check out their <a href="http://www.springer.com/statistics/computanional+statistics/book/978-1-4419-1575-7">Introducing Monte Carlo Methods with R</a>.</p>
+<p>Suppose we have one observation <span class="math inline">\(X \sim N(\theta,1)\)</span> but we have a (robust) prior distribution on <span class="math inline">\(\theta\)</span>, namely, <span class="math inline">\(\theta \sim \mathrm{Cauchy}(0,1)\)</span>. We would like to update our beliefs about <span class="math inline">\(\theta\)</span> based on the information provided by <span class="math inline">\(x\)</span>. So our likelihood is <span class="math display">\[
+f(x\vert\theta) = \frac{1}{\sqrt{2\pi}}\exp \left[-\frac{1}{2}(x - \theta)^2  \right],
+\]</span> and our prior is <span class="math display">\[
+g(\theta) = \frac{1}{\pi}\frac{1}{(1 + \theta^{2})}.
+\]</span> The posterior distribution is proportional to the likelihood times prior, that is, <span class="math display">\[
+g(\theta\vert x) \propto \exp \left[-\frac{1}{2}(x - \theta)^2  \right] \frac{1}{(1 + \theta^{2})},
+\]</span> with the proportionality constant being the reciprocal of <span class="math display">\[
+C = \int \exp \left[-\frac{1}{2}(x - \theta)^2  \right] \frac{1}{(1 + \theta^{2})} \mathrm{d} \theta.
+\]</span> Our point estimate (or best guess) for <span class="math inline">\(\theta\)</span> will be just the <em>posterior mean</em>, given by <span class="math display">\[
+\mathbb{E} (\theta \vert \mbox{data}) = \frac{ \int \theta \exp \left[-\frac{1}{2}(x - \theta)^2  \right] \frac{1}{(1 + \theta^{2})} \mathrm{d} \theta }{C}.
+\]</span></p>
+<p>We notice that the integrand for <span class="math inline">\(C\)</span> looks like <em>something</em> times a Cauchy PDF, where the <em>something</em> (let’s call it <span class="math inline">\(h\)</span>) is <span class="math display">\[
+h(\theta) = \pi \exp \left[-\frac{1}{2}(x - \theta)^2  \right],
+\]</span> so one way to use the Monte Carlo method follows.</p>
+<section id="procedure" class="level3">
+<h3 class="anchored" data-anchor-id="procedure">Procedure:</h3>
+<p>Given observed data <span class="math inline">\(X=x\)</span>,</p>
+<ol type="1">
+<li>Simulate a bunch of Cauchys, <span class="math inline">\(\theta_{1},\theta_{2},\ldots,\theta_{m}\)</span>, say.</li>
+<li>Estimate the integral in the denominator with <span class="math display">\[\frac{1}{m}\sum_{i=1}^{m} \pi\exp\left[-\frac{1}{2}(x - \theta_{i})^2 \right].\]</span></li>
+<li>Estimate the integral in the numerator with <span class="math display">\[\frac{1}{m}\sum_{i=1}^{m}* \pi\theta{i} \exp \left[-\frac{1}{2}(x - \theta_{i})^2  \right].\]</span></li>
+<li>Take the ratio, and we’re done.</li>
+</ol>
+<p>The <a href="http://en.wikipedia.org/wiki/Strong_Law_of_Small_Numbers">Strong Law of Large Numbers</a> says that the averages in 2 and 3 both converge to where they should, so the ratio should converge to the right place as well.</p>
+</section>
+</section>
+<section id="how-to-do-it-with-r" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-do-it-with-r">How to do it with R</h2>
+<p>The following is an R script which does the above. For laughs, let’s suppose that we observed <span class="math inline">\(X=3\)</span>.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)       <span class="co"># makes the experiment reproducible</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">2000</span>         <span class="co"># number of simulated values</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="dv">3</span>            <span class="co"># observed data</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Now simulate some random variables</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>theta <span class="ot">&lt;-</span> <span class="fu">rcauchy</span>(m)                   <span class="co"># simulate m standard Cauchys </span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>h <span class="ot">&lt;-</span> pi <span class="sc">*</span> <span class="fu">exp</span>(<span class="sc">-</span><span class="fl">0.5</span><span class="sc">*</span>(x <span class="sc">-</span> theta)<span class="sc">^</span><span class="dv">2</span>)     <span class="co"># who wants to write this over and over</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>Constant <span class="ot">&lt;-</span> <span class="fu">mean</span>(h)                   <span class="co"># estimate normalizing constant </span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>post.mean <span class="ot">&lt;-</span> <span class="fu">mean</span>(theta <span class="sc">*</span> h)<span class="sc">/</span><span class="fu">mean</span>(h)  <span class="co"># estimate posterior mean #+end_src</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="at-the-command-prompt" class="level2">
+<h2 class="anchored" data-anchor-id="at-the-command-prompt">At the command prompt</h2>
+<p>After copy-pasting the above into an R session we can see what the results were with an additional</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Constant</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3724711</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>post.mean</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.334232</code></pre>
+</div>
+</div>
+<p>For this simple example we can actually calculate what the true values are (to machine precision) with the following: for the constant <span class="math inline">\(C\)</span> we get</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">exp</span>(<span class="sc">-</span><span class="fl">0.5</span><span class="sc">*</span>(x <span class="sc">-</span> <span class="dv">3</span>)<span class="sc">^</span><span class="dv">2</span>)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">integrate</span>(f, <span class="sc">-</span><span class="cn">Inf</span>, <span class="cn">Inf</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>0.3416549 with absolute error &lt; 1.3e-07</code></pre>
+</div>
+</div>
+<p>so our estimate of <span class="math inline">\(C\)</span> overshot the mark by about 0.03, and in the posterior mean case we get</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>g <span class="ot">&lt;-</span> <span class="cf">function</span>(x) x <span class="sc">*</span> <span class="fu">f</span>(x)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">integrate</span>(g, <span class="sc">-</span><span class="cn">Inf</span>, <span class="cn">Inf</span>)<span class="sc">$</span>value <span class="sc">/</span> <span class="fu">integrate</span>(f, <span class="sc">-</span><span class="cn">Inf</span>, <span class="cn">Inf</span>)<span class="sc">$</span>value</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.285139</code></pre>
+</div>
+</div>
+<p>so our estimate of the posterior mean was around 0.05 too high. If we would like to get better estimates, we could increase the value of <code>m = 2000</code> to something higher (assuming these things are actually converging someplace).</p>
+</section>
+<section id="are-we-waiting-long-enough" class="level2">
+<h2 class="anchored" data-anchor-id="are-we-waiting-long-enough">Are we waiting long enough?</h2>
+<p>Our estimates were a little bit off; we might like to take a look at a plot to see how we’re doing – is this thing really converging like we’d expect? We can look at a running average plot to assess convergence. If the plot bounces around indeterminably, that’s bad, but if it settles down to a finite constant, that’s better. Here’s a quick way to check this out with <code>ggplot</code> graphics.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>rc <span class="ot">&lt;-</span> <span class="fu">cumsum</span>(h)<span class="sc">/</span><span class="fu">seq_along</span>(h)          <span class="co"># running mean of C </span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>rpm <span class="ot">&lt;-</span> <span class="fu">cumsum</span>(h <span class="sc">*</span> theta)<span class="sc">/</span><span class="fu">cumsum</span>(h)    <span class="co"># running posterior mean</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Now we plot the results.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(grid)</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>A <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">iter =</span> <span class="dv">1</span><span class="sc">:</span>m, <span class="at">rc =</span> rc, <span class="at">rpm=</span>rpm)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(reshape)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>A.short <span class="ot">&lt;-</span> <span class="fu">melt</span>(A[<span class="dv">3</span><span class="sc">:</span><span class="dv">200</span>, ], <span class="at">id=</span><span class="st">"iter"</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>a <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(A.short, <span class="fu">aes</span>(iter, value, <span class="at">colour=</span>variable)) <span class="sc">+</span> <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"First 200"</span>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>A.long <span class="ot">&lt;-</span> <span class="fu">melt</span>(A, <span class="at">id=</span><span class="st">"iter"</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>b <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(A.long, <span class="fu">aes</span>(iter, value, <span class="at">colour=</span>variable)) <span class="sc">+</span> <span class="fu">geom_line</span>() <span class="sc">+</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>      <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"All 2000 iterations"</span>)</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.newpage</span>()</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="fu">pushViewport</span>(<span class="fu">viewport</span>(<span class="at">layout =</span> <span class="fu">grid.layout</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="at">widths =</span> <span class="fu">unit</span>(<span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">5</span>),<span class="st">"null"</span>))))</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>vplayout <span class="ot">&lt;-</span> <span class="cf">function</span>(x, y)</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="fu">viewport</span>(<span class="at">layout.pos.row =</span> x, <span class="at">layout.pos.col =</span> y)</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(a, <span class="at">vp =</span> <span class="fu">vplayout</span>(<span class="dv">1</span>, <span class="dv">1</span>))</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(b, <span class="at">vp =</span> <span class="fu">vplayout</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div id="fig-yplot" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="index_files/figure-html/fig-yplot-1.png" class="img-fluid figure-img" width="672"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;1: Running averages for assessing convergence of the estimators.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+<p>In this example, the estimates look to be still unstable at around <code>m = 200</code>, but by the time we reach <code>m = 2000</code> they look to have pretty much settled down. Here we knew what the true values were, so we could tell immediately how well we were doing. On the battlefield we will not be so lucky. In general, with Monte Carlo estimates like these it is wise to take a look at some plots to judge the behavior of our estimators. If our plot looks more like the one on the left, then we should consider increasing the sample size. If our plot looks more like the one on the right, then maybe we would be satisfied with “close enough”. (We can always wait longer, tight purse-strings notwithstanding.)</p>
+</section>
+<section id="other-approaches" class="level2">
+<h2 class="anchored" data-anchor-id="other-approaches">Other approaches</h2>
+<p>When we were looking to estimate <span class="math inline">\(C\)</span> we noticed that the integrand was <em>something</em> times a Cauchy distribution. If we look again, we can see that the same integrand also looks like a <em>normal</em> distribution times <em>something</em>. So, another approach would be to simulate a bunch of normals and average the new <em>somethings</em>. Do we get the same answer (in the limit)?</p>
+<p>Yes, of course. It turns out, the approach simulating normals does a little bit better than the one simulating Cauchys, but they’re really pretty close. Check out chapter 4 of <a href="http://www.springer.com/statistics/statistical+theory+and+methods/book/978-0-387-21239-5">Monte Carlo Statistical Methods</a> for discussion on this.</p>
+</section>
+<section id="where-to-find-more" class="level2">
+<h2 class="anchored" data-anchor-id="where-to-find-more">Where to find more…</h2>
+<p>The above is a variant of an example we did in <a href="https://github.com/gjkerns/STAT5840">STAT 5840, Statistical Computing</a>. The entire course is available online at <a href="https://github.com/gjkerns/STAT5840">GitHub</a>. Go to the Downloads for a <code>.zip</code> file or <code>.tar.gz</code>. Or, if you have <a href="http://git-scm.com/">git</a> installed, you can get (git? har har) it all with</p>
+<pre><code>git clone git://github.com/gjkerns/STAT5840.git</code></pre>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>

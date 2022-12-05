@@ -1,6 +1,6 @@
 ---
 title: "Estimating a normal mean with a cauchy prior"
-description: "Let's do some Monte Carlo estimation and warm up the motor."
+description: "This is an example (with a Bayesian spin) illustrating one way to compute a complicated expectation (that is, an integral) by the Monte Carlo method."
 author: "G. Jay Kerns"
 date: "2011-08-27"
 categories: [R, code, Bayesian]

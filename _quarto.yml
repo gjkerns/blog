@@ -1,8 +1,10 @@
 project:
   type: website
+  output-dir: docs
 
 website:
   title: "Statistics, plain and sample"
+  site-url: "https://gjkerns.github.io"
   navbar:
     right:
       - about.qmd

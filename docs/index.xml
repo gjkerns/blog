@@ -1,0 +1,470 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss  xmlns:atom="http://www.w3.org/2005/Atom" 
+      xmlns:media="http://search.yahoo.com/mrss/" 
+      xmlns:content="http://purl.org/rss/1.0/modules/content/" 
+      xmlns:dc="http://purl.org/dc/elements/1.1/" 
+      version="2.0">
+<channel>
+<title>Statistics, plain and sample</title>
+<link>https://gjkerns.github.io/index.html</link>
+<atom:link href="https://gjkerns.github.io/index.xml" rel="self" type="application/rss+xml"/>
+<description></description>
+<generator>quarto-1.1.189</generator>
+<lastBuildDate>Fri, 20 Jan 2012 05:00:00 GMT</lastBuildDate>
+<item>
+  <title>Power and Sample Size for Repeated Measures ANOVA with R</title>
+  <dc:creator>G. Jay Kerns</dc:creator>
+  <link>https://gjkerns.github.io/posts/2012-01-20-power-sample-size/index.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<section id="background" class="level2">
+<h2 class="anchored" data-anchor-id="background">Background</h2>
+<p>One of my colleagues is an academic physical therapist (PT), and he’s working on a paper to his colleagues related to power, sample size, and navigating the thicket of trouble that surrounds those two things. We recently got together to walk through some of the issues, and I thought I would share some of the wildlife we observed along the way. If you just want the code and don’t care about the harangue, see <a href="https://gist.github.com/1608265">this gist on GitHub</a>.</p>
+</section>
+<section id="the-problem" class="level2">
+<h2 class="anchored" data-anchor-id="the-problem">The problem</h2>
+<p>Suppose you are a PT, and you’ve come up with a brand new exercise method that you think will decrease neck pain, say. How can you demonstrate that your method is effective? Of course, you collect data and show that people using your method have significantly lower neck pain than those from a control group.</p>
+<p>The standard approach in the PT literature to analyze said data is repeated measures ANOVA. (Yes, those guys should really be using mixed-effects models, but those haven’t quite taken off yet.) There are two groups: the “Treatment” group does your new exercise method, and a “Sham” group does nothing (or just the placebo exercise method). For each Subject, you measure their pain at time 0, 15 minutes, 48 hours, and 96 hours. Pain is measured by an index (there are several); the one we’re using is something called NDI, which stands for “Neck Disability Index”. The index ranges from 0 to 100 (more on this later). There is some brief information about the index <a href="http://www.chiro.org/LINKS/OUTCOME/Painter_1.shtm">here</a>.</p>
+<p>Now comes the question: how many people should you recruit for your study? The answer is: it depends. “On what?” Well, it depends on how good the statistical test is, and how good your method is, but more to the point, it depends on <em>the effect size</em>, that is, how far apart the two groups are, given that the method actually works.</p>
+<p>I encounter some variant of this question a lot. I used to go look for research papers where somebody’s worked out the <em>F</em>-test and sample sizes required, and pore over tables and tables. Then I resorted to online calculators (the proprietary versions were too expensive for my department!), which are fine, but they all use different notation and it takes a lot of time poring through documentation (which is often poor, pardon the pun) to recall how it works. And I was never really sure whether I’d got it right, or if I had screwed up with a parameter somewhere.</p>
+<p>Some of the calculators advertise <em>Cohen’s effect sizes</em>, which are usually stated something like “small”, “medium”, and “large”, with accompanying numerical values. <a href="http://www.stat.uiowa.edu/~rlenth/Power/">Russell Lenth</a> calls these “T-shirt effect sizes”. I agree with him.</p>
+<p>Nowadays the fashionable people say, “Just run a simulation and estimate the power,” but the available materials online are scantly detailed. So my buddy and I worked it all out from start to finish for this simple example, in the hopes that by sharing this information people can get a better idea of how to do it the <em>right</em> way, the <em>first</em> time.</p>
+</section>
+<section id="how-to-attack-it" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-attack-it">How to attack it</h2>
+<p><strong>The avenue of attack is simple:</strong> for a given sample size,</p>
+<ol type="1">
+<li>use prior research and practitioner experience to decide what difference would be “meaningful” to detect,</li>
+<li>simulate data consistent with the above difference and run the desired statistical test to see whether or not it rejected, and</li>
+<li>repeat step 2 hundreds of times. An estimate of the power (for that sample size) is the proportion of times that the test rejected.</li>
+</ol>
+<p>If the power isn’t high enough, then increase the given sample size and start over. The value we get is just an <em>estimate</em> of the power, but we can increase the precision of our estimate by increasing the number of repetitions in step 3.</p>
+<p>What you find when you start down this path is that there is a <strong>lot</strong> of information required to be able to answer the question. Of course, this information had been hiding behind the scenes all along, even with those old research papers and online calculators, but the other methods make it easy to gloss over the details, or they’re so complicated that researchers will give up and fall back to something like Cohen’s T-shirt effect sizes.</p>
+</section>
+<section id="now-for-the-legwork" class="level2">
+<h2 class="anchored" data-anchor-id="now-for-the-legwork">Now for the legwork</h2>
+<p>The details we need include: A) prior knowledge of how average pain decreases for people in the <code>Sham</code> group, B) some idea about the variability of scores, C) how scores would be correlated with one another over time, and D) how much better the <code>Treat</code> group would need to be in order for the new procedure to be considered clinically meaningful.</p>
+<p>As a first step, the PT sat down and filled in the following table.</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th>0 hrs</th>
+<th>15 min</th>
+<th>48 hrs</th>
+<th>96 hrs</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Treat</td>
+<td>37</td>
+<td>32</td>
+<td>20</td>
+<td>15</td>
+</tr>
+<tr class="even">
+<td>Sham</td>
+<td>37</td>
+<td>32</td>
+<td>25</td>
+<td>22</td>
+</tr>
+</tbody>
+</table>
+<p>All of the entries in the above table represent population mean NDI scores for people in the respective groups at the respective measurement times, and were filled in based on prior research and educated guesses by the PT. It was known from other studies that NDI scores have a standard deviation of around 12, and those have been observed to decrease over time.</p>
+<p><strong>Note:</strong> we could have assumed a simpler model for the means. For example, we could have assumed that mean NDI was linear, with possibly different slopes/intercepts for the Treat/Sham groups. Prior info available to the PT said that such an assumption wasn’t reasonable for this example.</p>
+<p>Repeated measures designs assume sphericity for the exact <em>F</em> tests to hold, so we need to specify a variance for the differences, <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BVar%7D(X_%7Bi%7D%20-%20X_%7Bj%7D)">, and sphericity says this variance should be the same for all time points <img src="https://latex.codecogs.com/png.latex?i"> and <img src="https://latex.codecogs.com/png.latex?j">. As it turns out, this last choice implicitly determines all of the remaining covariance structure. We set this standard deviation to <img src="https://latex.codecogs.com/png.latex?9">.</p>
+</section>
+<section id="finally-we-do-some-coding" class="level2">
+<h2 class="anchored" data-anchor-id="finally-we-do-some-coding">Finally we do some coding</h2>
+<p>We are now ready to turn on the computer. We first intialize the parameters we’ll need, next we set up the independent variable data, then we do the simulation, and finally we rinse-and-repeat. Let’s go.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">set.seed</span>(<span class="dv" style="color: #AD0000;">1</span>)</span>
+<span id="cb1-2">nPerGroup <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">10</span></span>
+<span id="cb1-3">nTime     <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">4</span></span>
+<span id="cb1-4">muTreat   <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">37</span>, <span class="dv" style="color: #AD0000;">32</span>, <span class="dv" style="color: #AD0000;">20</span>, <span class="dv" style="color: #AD0000;">15</span>)</span>
+<span id="cb1-5">muSham    <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">37</span>, <span class="dv" style="color: #AD0000;">32</span>, <span class="dv" style="color: #AD0000;">25</span>, <span class="dv" style="color: #AD0000;">22</span>)</span>
+<span id="cb1-6">stdevs    <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">12</span>, <span class="dv" style="color: #AD0000;">10</span>, <span class="dv" style="color: #AD0000;">8</span>, <span class="dv" style="color: #AD0000;">6</span>)</span>
+<span id="cb1-7">stdiff    <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">9</span></span>
+<span id="cb1-8">nSim      <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">500</span></span></code></pre></div>
+</div>
+<p>All of the above should be self-explanatory. Next comes setting up the data - creatively named <code>theData</code> - for the independent variables. Just for the sake of argument I used code to generate the data frame, but we wouldn’t have had to. We could have imported an external text file had we wished.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1">Subject <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">factor</span>(<span class="dv" style="color: #AD0000;">1</span><span class="sc" style="color: #5E5E5E;">:</span>(nPerGroup<span class="sc" style="color: #5E5E5E;">*</span><span class="dv" style="color: #AD0000;">2</span>))</span>
+<span id="cb2-2">Time <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">factor</span>(<span class="dv" style="color: #AD0000;">1</span><span class="sc" style="color: #5E5E5E;">:</span>nTime, <span class="at" style="color: #657422;">labels =</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"0min"</span>, <span class="st" style="color: #20794D;">"15min"</span>, <span class="st" style="color: #20794D;">"48hrs"</span>, <span class="st" style="color: #20794D;">"96hrs"</span>))</span>
+<span id="cb2-3"></span>
+<span id="cb2-4">theData <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">expand.grid</span>(Time, Subject)</span>
+<span id="cb2-5"><span class="fu" style="color: #4758AB;">names</span>(theData) <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"Time"</span>, <span class="st" style="color: #20794D;">"Subject"</span>)</span>
+<span id="cb2-6"></span>
+<span id="cb2-7">tmp <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="st" style="color: #20794D;">"Treat"</span>, <span class="st" style="color: #20794D;">"Sham"</span>), <span class="at" style="color: #657422;">each =</span> nPerGroup <span class="sc" style="color: #5E5E5E;">*</span> nTime)</span>
+<span id="cb2-8">theData<span class="sc" style="color: #5E5E5E;">$</span>Method <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">factor</span>(tmp)</span></code></pre></div>
+</div>
+<p>Again, the above should be self-explanatory for the most part. The data are in “long” form, where each subject appears over multiple rows. In fact, let’s take a look at the data frame to make sure it looks right.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><span class="fu" style="color: #4758AB;">head</span>(theData)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   Time Subject Method
+1  0min       1  Treat
+2 15min       1  Treat
+3 48hrs       1  Treat
+4 96hrs       1  Treat
+5  0min       2  Treat
+6 15min       2  Treat</code></pre>
+</div>
+</div>
+<p>Lookin’ good. Now for the fun part. We generate the single remaining column, the NDI scores. The repeated measures model is multivariate normal. The population covariance matrix is a little bit tricky, but it’s not too bad and to make things easy we’ll assume both groups have the same covariance. See <a href="http://www.jstor.org/stable/2284340">the original paper by Huynh and Feldt</a> for details.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><span class="co" style="color: #5E5E5E;"># to set up variance-covariance matrix</span></span>
+<span id="cb5-2">ones <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rep</span>(<span class="dv" style="color: #AD0000;">1</span>, nTime)</span>
+<span id="cb5-3">A <span class="ot" style="color: #003B4F;">&lt;-</span> stdevs<span class="sc" style="color: #5E5E5E;">^</span><span class="dv" style="color: #AD0000;">2</span> <span class="sc" style="color: #5E5E5E;">%o%</span> ones</span>
+<span id="cb5-4">B <span class="ot" style="color: #003B4F;">&lt;-</span> (A <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">t</span>(A) <span class="sc" style="color: #5E5E5E;">+</span> (stdiff<span class="sc" style="color: #5E5E5E;">^</span><span class="dv" style="color: #AD0000;">2</span>)<span class="sc" style="color: #5E5E5E;">*</span>(<span class="fu" style="color: #4758AB;">diag</span>(nTime) <span class="sc" style="color: #5E5E5E;">-</span> ones <span class="sc" style="color: #5E5E5E;">%o%</span> ones))<span class="sc" style="color: #5E5E5E;">/</span><span class="dv" style="color: #AD0000;">2</span></span></code></pre></div>
+</div>
+<p>We simulate with the <code>mvrnorm</code> function from the <code>MASS</code> package.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><span class="fu" style="color: #4758AB;">library</span>(MASS)</span>
+<span id="cb6-2">tmp1 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mvrnorm</span>(nPerGroup, <span class="at" style="color: #657422;">mu =</span> muTreat, <span class="at" style="color: #657422;">Sigma =</span> B)</span>
+<span id="cb6-3">tmp2 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mvrnorm</span>(nPerGroup, <span class="at" style="color: #657422;">mu =</span> muSham, <span class="at" style="color: #657422;">Sigma =</span> B)</span>
+<span id="cb6-4">theData<span class="sc" style="color: #5E5E5E;">$</span>NDI <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="fu" style="color: #4758AB;">as.vector</span>(<span class="fu" style="color: #4758AB;">t</span>(tmp1)), <span class="fu" style="color: #4758AB;">as.vector</span>(<span class="fu" style="color: #4758AB;">t</span>(tmp2)))</span></code></pre></div>
+</div>
+<p>Now that we have our data, we can run the test:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1">aovComp <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">aov</span>(NDI <span class="sc" style="color: #5E5E5E;">~</span> Time<span class="sc" style="color: #5E5E5E;">*</span>Method <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">Error</span>(Subject<span class="sc" style="color: #5E5E5E;">/</span>Time), theData)</span>
+<span id="cb7-2"><span class="fu" style="color: #4758AB;">summary</span>(aovComp)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Error: Subject
+          Df Sum Sq Mean Sq F value Pr(&gt;F)
+Method     1  207.2   207.2   1.896  0.185
+Residuals 18 1967.5   109.3               
+
+Error: Subject:Time
+            Df Sum Sq Mean Sq F value   Pr(&gt;F)    
+Time         3   4871  1623.5  42.709 2.79e-14 ***
+Time:Method  3    251    83.7   2.201   0.0985 .  
+Residuals   54   2053    38.0                     
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1</code></pre>
+</div>
+</div>
+<p>Terrific! For these data, we observe a highly significant <code>Time</code> effect (this should be obvious given our table above), an insignificant <code>Method</code> fixed effect, and an insignificant <code>Time:Method</code> interaction. If we think about our model and what we’re interested in, it’s the interaction which we care about and that which we’d like to detect. If our significance level had been <img src="https://latex.codecogs.com/png.latex?%5Calpha%20=%200.05">, we would not have rejected this time, but who knows what would happen next time.</p>
+<p>Now it’s time to rinse-and-repeat, which we accomplish with the <code>replicate</code> function. Before we get there, though, let’s look at a plot. There are several relevant ones, but in the interest of brevity let’s satisfy ourselves with an <code>interaction.plot</code>:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><span class="fu" style="color: #4758AB;">with</span>(theData, <span class="fu" style="color: #4758AB;">interaction.plot</span>(Time, Method, NDI))</span></code></pre></div>
+<div class="cell-output-display">
+<p><img src="https://gjkerns.github.io/posts/2012-01-20-power-sample-size/index_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Everything is going according to plan. There is definitely a <code>Time</code> effect (the lines both slope downward) but there isn’t any evidence of an interaction (the lines have similar slopes).</p>
+<p>On to rinse-and-repeat, we first set up the function that runs the test once:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1">runTest <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(){</span>
+<span id="cb10-2">  tmp1 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mvrnorm</span>(nPerGroup, <span class="at" style="color: #657422;">mu =</span> muTreat, <span class="at" style="color: #657422;">Sigma =</span> B)</span>
+<span id="cb10-3">  tmp2 <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mvrnorm</span>(nPerGroup, <span class="at" style="color: #657422;">mu =</span> muSham, <span class="at" style="color: #657422;">Sigma =</span> B)</span>
+<span id="cb10-4">  theData<span class="sc" style="color: #5E5E5E;">$</span>NDI <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">c</span>(<span class="fu" style="color: #4758AB;">as.vector</span>(<span class="fu" style="color: #4758AB;">t</span>(tmp1)), <span class="fu" style="color: #4758AB;">as.vector</span>(<span class="fu" style="color: #4758AB;">t</span>(tmp2)))</span>
+<span id="cb10-5">  aovComp <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">aov</span>(NDI <span class="sc" style="color: #5E5E5E;">~</span> Time<span class="sc" style="color: #5E5E5E;">*</span>Method <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">Error</span>(Subject<span class="sc" style="color: #5E5E5E;">/</span>Time), theData)  </span>
+<span id="cb10-6">  b <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">summary</span>(aovComp)<span class="sc" style="color: #5E5E5E;">$</span><span class="st" style="color: #20794D;">'Error: Subject:Time'</span>[[<span class="dv" style="color: #AD0000;">1</span>]][<span class="dv" style="color: #AD0000;">2</span>,<span class="dv" style="color: #AD0000;">5</span>]</span>
+<span id="cb10-7">  b <span class="sc" style="color: #5E5E5E;">&lt;</span> <span class="fl" style="color: #AD0000;">0.05</span></span>
+<span id="cb10-8">}</span></code></pre></div>
+</div>
+<p>and finally do the repeating:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><span class="fu" style="color: #4758AB;">mean</span>(<span class="fu" style="color: #4758AB;">replicate</span>(nSim, <span class="fu" style="color: #4758AB;">runTest</span>()))</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.346</code></pre>
+</div>
+</div>
+<p>Whoa! The power is 0.372? That’s pretty low. We recall that this is just an <em>estimate</em> of power - how precise is the estimate? The standard error of <img src="https://latex.codecogs.com/png.latex?%5Chat%7Bp%7D"> is approximately <img src="https://latex.codecogs.com/png.latex?%5Csqrt%7B%5Chat%7Bp%7D(1-%5Chat%7Bp%7D)/n%7D">, so in our case, our estimate’s standard error is approximately 0.022. That means we are approximately 95% confident that the true power at this particular alternative is covered by the interval <img src="https://latex.codecogs.com/png.latex?%5B0.329,0.415%5D">.</p>
+<p>Standard practice is to shoot for a power of around <img src="https://latex.codecogs.com/png.latex?%5Cbeta%20=%200.80">, so our power isn’t even close to what we’d need. We can increase power by increasing sample size (the parameter <code>nPerGroup</code>). A larger sample size means a longer time needed to run the simulation. Below are some results of running the above script at assorted sample sizes.</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th><code>nPerGroup</code></th>
+<th>Power (estimate)</th>
+<th>SE (approx)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>10</td>
+<td>0.372</td>
+<td>0.022</td>
+</tr>
+<tr class="even">
+<td>20</td>
+<td>0.686</td>
+<td>0.021</td>
+</tr>
+<tr class="odd">
+<td>30</td>
+<td>0.886</td>
+<td>0.014</td>
+</tr>
+</tbody>
+</table>
+<p>Now we’re talking. It looks like somewhere between 20 and 30 subjects per group would be enough to detect the clinically meaningful difference proposed above with a power of 0.80.</p>
+<p>Unfortunately, the joke is on us. Because, as it happens, it’s no small order for a lone, practicing PT (around here) to snare 60 humans with neck pain for a research study. A person would need to be in (or travel to) a heavily populated area, and even <em>then</em> there would be dropout, people not showing up for subsequent appointments.</p>
+<p><strong>So what can we do?</strong></p>
+<ol type="1">
+<li><strong>Modify the research details.</strong> If we take a closer look at the table, there isn’t an expected difference in the means until 48 hours, so why not measure differently, say, at 0, 48, 96, and 144 hours? Is there something else about the measurement process we could change to decrease the variance?</li>
+<li><strong>Use a different test.</strong> We are going with boilerplate repeated-measures ANOVA here. Is that really the best choice? What would happen if we tried the mixed-effects approach?</li>
+<li><strong>Take a second look at the model.</strong> We should not only double-check our parameter choices, but rethink: is the repeated-measures model (multivariate normal) the most appropriate? Is it reasonable for the variance of differences at all time pairs to be identical? What about the covariance structure? There are others we could try, such as an autoregressive model (another arrow in the mixed-effects models’ quiver).</li>
+</ol>
+</section>
+<section id="other-things-to-keep-in-mind" class="level2">
+<h2 class="anchored" data-anchor-id="other-things-to-keep-in-mind">Other things to keep in mind</h2>
+<ul>
+<li>This example is simple enough to have done analytically; we didn’t have to simulate anything at all.</li>
+<li>Even if the example hadn’t been simple, we could still have searched for an <em>approximate</em> analytic solution which, if nothing else, might have given some insight into the power function’s behavior.</li>
+<li>We could have adjusted all the means upward by 7 and nothing would have changed. We based our initial values on literature review and clinical expertise.</li>
+<li>We didn’t bother with contrasts, functional means, or anything else. We just generated data consistent with our null and salient alternative and went on with our business.</li>
+<li>We could have used whatever test we liked yet the method of attack would have been the same. Multiple comparisons, nested tests, nonparametric tests, whatever. As long as we include the full procedure in <code>runTest</code>, we will get valid estimates of power for <em>that</em> procedure at <em>that</em> alternative.</li>
+<li>We need to be careful that the test we use (whatever it is) has its significance level controlled. This is easy to check in our example. We can set the means equal (<code>muTreat = muSham</code>) and run the simulation. We should get a power equal to 0.05 (within margin of error). Go ahead, check yourself. In fact, since we only care about the interaction, we could vertically offset the means by any fixed number, not necessarily zero.</li>
+<li>Had we not been careful with our <code>stdevs</code>, our simulated NDIs would have gone negative, particularly at the latter time points. That would not have been reasonable since NDI is nonnegative.</li>
+<li><strong>Simulation is not a silver bullet.</strong></li>
+<li>Effective simulation requires substantial investment of thought into <em>both</em> the probability model and the parameter settings.</li>
+<li>Our model had 13 parameters, and we had 4 more we didn’t even touch[fn:1]. A person could be forgiven for wondering how in the world all of those parameters can be expressively spun into a T-shirt effect size. (They can’t.)</li>
+<li>The complexity can get out of control quickly. Simulation run times can take forever. The more complicated the model/test the worse it gets.</li>
+<li>Informative simulation demands literature review and content expertise as a prerequisite. Some researchers are unable (due to lack of existing/quality studies) or unwilling (for all sorts of reasons, not all of which are good) to help the statistician fill in the details. For the statistician, this is a problem. If you don’t know anything, then you can’t say anything.</li>
+<li>We can address uncertainty in our parameter guesses with prior distributions on the parameters. This adds a layer of complexity to the simulation since we must first simulate the parameters before simulating the data. Sometimes there’s no other choice.</li>
+<li>Theory tells us that the standard research designs (including our current one) can usually be re-parameterized by a single non-centrality parameter which ultimately determines the power at any particular alternative. Following our nose, it suggests that our problem is simpler than we’re making it, that if we would just write down the non-centrality parameter (and the right numerator/denominator degrees of freedom), we’d be all set. Yep, we would. Good luck with all… that.</li>
+</ul>
+<p>[fn:1] John von Neumann once said, “With four parameters I can fit an elephant, and with five I can make him wiggle his trunk.”</p>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">References</h2>
+<ul>
+<li><p>See <a href="http://stats.stackexchange.com/questions/21237/calculating-statistical-power">this question</a> on <a href="http://stats.stackexchange.com/">CrossValidated</a> which came up while I was working on this document (I might not have answered so quickly otherwise). Thanks to all who contributed to that discussion.</p></li>
+<li><p><em>Conditions Under Which Mean Square Ratios in Repeated Measurements Designs Have Exact F-Distributions</em>. Huynh Huynh and Leonard S. Feldt, Journal of the American Statistical Association, Vol. 65, No.&nbsp;332 (Dec., 1970), pp.&nbsp;1582-1589, <a href="http://www.jstor.org/stable/2284340">stable link</a>.</p></li>
+<li><p>I found <a href="http://personality-project.org/r/r.anova.html">this website</a> while preparing for the initial meeting and got some inspiration from the discussion near the middle.</p></li>
+<li><p>There are several papers on <a href="http://www.stat.uiowa.edu/~rlenth/Power/">Russell Lenth’s webpage</a> which are good reading.</p></li>
+<li><p>I also like <a href="http://onlinelibrary.wiley.com/doi/10.1348/000711001159357/abstract">this paper</a>. Keselman, H. J., Algina, J. and Kowalchuk, R. K. (2001), <em>The analysis of repeated measures designs: A review.</em> British Journal of Mathematical and Statistical Psychology, 54: 1–20. doi: 10.1348/000711001159357</p></li>
+<li><p>Many of the concepts above are explained more formally in my <a href="https://github.com/gjkerns/STAT5840">Statistical Computing</a> course which you can get on GitHub.</p></li>
+<li><p>To learn more about Monte Carlo methods with R I recommend <a href="http://www.springer.com/statistics/computanional+statistics/book/978-1-4419-1575-7">Introducing Monte Carlo Methods with R</a> by Robert and Casella. I also like <a href="http://personal.bgsu.edu/~mrizzo/SCR.htm">Statistical Computing with R</a> by Rizzo which has a section about simulating power of statistical tests.</p></li>
+<li><p>For the record, here is my <code>sessionInfo</code>.</p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><span class="fu" style="color: #4758AB;">sessionInfo</span>()</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.2.2 (2022-10-31 ucrt)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 19044)
+
+Matrix products: default
+
+locale:
+[1] LC_COLLATE=English_United States.utf8 
+[2] LC_CTYPE=English_United States.utf8   
+[3] LC_MONETARY=English_United States.utf8
+[4] LC_NUMERIC=C                          
+[5] LC_TIME=English_United States.utf8    
+
+attached base packages:
+[1] stats     graphics  grDevices datasets  utils     methods   base     
+
+other attached packages:
+[1] MASS_7.3-58.1
+
+loaded via a namespace (and not attached):
+ [1] digest_0.6.30   lifecycle_1.0.3 jsonlite_1.8.3  magrittr_2.0.3 
+ [5] evaluate_0.18   rlang_1.0.6     stringi_1.7.8   cli_3.4.1      
+ [9] renv_0.16.0     vctrs_0.5.1     rmarkdown_2.18  tools_4.2.2    
+[13] stringr_1.5.0   glue_1.6.2      xfun_0.35       yaml_2.3.6     
+[17] fastmap_1.1.0   compiler_4.2.2  htmltools_0.5.3 knitr_1.41     </code></pre>
+</div>
+</div>
+
+
+</section>
+
+ ]]></description>
+  <category>R</category>
+  <category>code</category>
+  <category>Classical</category>
+  <guid>https://gjkerns.github.io/posts/2012-01-20-power-sample-size/index.html</guid>
+  <pubDate>Fri, 20 Jan 2012 05:00:00 GMT</pubDate>
+  <media:content url="https://gjkerns.github.io/posts/2012-01-20-power-sample-size/interaction.png" medium="image" type="image/png" height="103" width="144"/>
+</item>
+<item>
+  <title>Estimating a normal mean with a cauchy prior</title>
+  <dc:creator>G. Jay Kerns</dc:creator>
+  <link>https://gjkerns.github.io/posts/2011-08-27-estimate-normal-mean/index.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<section id="the-setup" class="level2">
+<h2 class="anchored" data-anchor-id="the-setup">The setup</h2>
+<p>When doing statistics the Bayesian way, we are sometimes bombarded with complicated integrals that do not lend themselves to closed-form solutions. This used to be a problem. Nowadays, not so much. This post illustrates how a person can use the Monte Carlo method (and R) to get a good estimate for an integral that might otherwise look unwieldy at first glance. Of course, in this example, the integral isn’t very complicated. But the /method/ works the same, regardless of the mess in which we find ourselves. The current example is derived from one in <a href="http://www.springer.com/statistics/statistical+theory+and+methods/book/978-0-387-21239-5">Monte Carlo Statistical Methods</a> by Robert/Casella (in Chapter 4). For that matter, check out their <a href="http://www.springer.com/statistics/computanional+statistics/book/978-1-4419-1575-7">Introducing Monte Carlo Methods with R</a>.</p>
+<p>Suppose we have one observation <img src="https://latex.codecogs.com/png.latex?X%20%5Csim%20N(%5Ctheta,1)"> but we have a (robust) prior distribution on <img src="https://latex.codecogs.com/png.latex?%5Ctheta">, namely, <img src="https://latex.codecogs.com/png.latex?%5Ctheta%20%5Csim%20%5Cmathrm%7BCauchy%7D(0,1)">. We would like to update our beliefs about <img src="https://latex.codecogs.com/png.latex?%5Ctheta"> based on the information provided by <img src="https://latex.codecogs.com/png.latex?x">. So our likelihood is <img src="https://latex.codecogs.com/png.latex?%0Af(x%5Cvert%5Ctheta)%20=%20%5Cfrac%7B1%7D%7B%5Csqrt%7B2%5Cpi%7D%7D%5Cexp%20%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta)%5E2%20%20%5Cright%5D,%0A"> and our prior is <img src="https://latex.codecogs.com/png.latex?%0Ag(%5Ctheta)%20=%20%5Cfrac%7B1%7D%7B%5Cpi%7D%5Cfrac%7B1%7D%7B(1%20+%20%5Ctheta%5E%7B2%7D)%7D.%0A"> The posterior distribution is proportional to the likelihood times prior, that is, <img src="https://latex.codecogs.com/png.latex?%0Ag(%5Ctheta%5Cvert%20x)%20%5Cpropto%20%5Cexp%20%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta)%5E2%20%20%5Cright%5D%20%5Cfrac%7B1%7D%7B(1%20+%20%5Ctheta%5E%7B2%7D)%7D,%0A"> with the proportionality constant being the reciprocal of <img src="https://latex.codecogs.com/png.latex?%0AC%20=%20%5Cint%20%5Cexp%20%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta)%5E2%20%20%5Cright%5D%20%5Cfrac%7B1%7D%7B(1%20+%20%5Ctheta%5E%7B2%7D)%7D%20%5Cmathrm%7Bd%7D%20%5Ctheta.%0A"> Our point estimate (or best guess) for <img src="https://latex.codecogs.com/png.latex?%5Ctheta"> will be just the <em>posterior mean</em>, given by <img src="https://latex.codecogs.com/png.latex?%0A%5Cmathbb%7BE%7D%20(%5Ctheta%20%5Cvert%20%5Cmbox%7Bdata%7D)%20=%20%5Cfrac%7B%20%5Cint%20%5Ctheta%20%5Cexp%20%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta)%5E2%20%20%5Cright%5D%20%5Cfrac%7B1%7D%7B(1%20+%20%5Ctheta%5E%7B2%7D)%7D%20%5Cmathrm%7Bd%7D%20%5Ctheta%20%7D%7BC%7D.%0A"></p>
+<p>We notice that the integrand for <img src="https://latex.codecogs.com/png.latex?C"> looks like <em>something</em> times a Cauchy PDF, where the <em>something</em> (let’s call it <img src="https://latex.codecogs.com/png.latex?h">) is <img src="https://latex.codecogs.com/png.latex?%0Ah(%5Ctheta)%20=%20%5Cpi%20%5Cexp%20%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta)%5E2%20%20%5Cright%5D,%0A"> so one way to use the Monte Carlo method follows.</p>
+<section id="procedure" class="level3">
+<h3 class="anchored" data-anchor-id="procedure">Procedure:</h3>
+<p>Given observed data <img src="https://latex.codecogs.com/png.latex?X=x">,</p>
+<ol type="1">
+<li>Simulate a bunch of Cauchys, <img src="https://latex.codecogs.com/png.latex?%5Ctheta_%7B1%7D,%5Ctheta_%7B2%7D,%5Cldots,%5Ctheta_%7Bm%7D">, say.</li>
+<li>Estimate the integral in the denominator with <img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B1%7D%7Bm%7D%5Csum_%7Bi=1%7D%5E%7Bm%7D%20%5Cpi%5Cexp%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta_%7Bi%7D)%5E2%20%5Cright%5D."></li>
+<li>Estimate the integral in the numerator with <img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B1%7D%7Bm%7D%5Csum_%7Bi=1%7D%5E%7Bm%7D*%20%5Cpi%5Ctheta%7Bi%7D%20%5Cexp%20%5Cleft%5B-%5Cfrac%7B1%7D%7B2%7D(x%20-%20%5Ctheta_%7Bi%7D)%5E2%20%20%5Cright%5D."></li>
+<li>Take the ratio, and we’re done.</li>
+</ol>
+<p>The <a href="http://en.wikipedia.org/wiki/Strong_Law_of_Small_Numbers">Strong Law of Large Numbers</a> says that the averages in 2 and 3 both converge to where they should, so the ratio should converge to the right place as well.</p>
+</section>
+</section>
+<section id="how-to-do-it-with-r" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-do-it-with-r">How to do it with R</h2>
+<p>The following is an R script which does the above. For laughs, let’s suppose that we observed <img src="https://latex.codecogs.com/png.latex?X=3">.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">set.seed</span>(<span class="dv" style="color: #AD0000;">1</span>)       <span class="co" style="color: #5E5E5E;"># makes the experiment reproducible</span></span>
+<span id="cb1-2">m <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">2000</span>         <span class="co" style="color: #5E5E5E;"># number of simulated values</span></span>
+<span id="cb1-3">x <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="dv" style="color: #AD0000;">3</span>            <span class="co" style="color: #5E5E5E;"># observed data</span></span>
+<span id="cb1-4"></span>
+<span id="cb1-5"><span class="co" style="color: #5E5E5E;"># Now simulate some random variables</span></span>
+<span id="cb1-6"></span>
+<span id="cb1-7">theta <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">rcauchy</span>(m)                   <span class="co" style="color: #5E5E5E;"># simulate m standard Cauchys </span></span>
+<span id="cb1-8">h <span class="ot" style="color: #003B4F;">&lt;-</span> pi <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">exp</span>(<span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.5</span><span class="sc" style="color: #5E5E5E;">*</span>(x <span class="sc" style="color: #5E5E5E;">-</span> theta)<span class="sc" style="color: #5E5E5E;">^</span><span class="dv" style="color: #AD0000;">2</span>)     <span class="co" style="color: #5E5E5E;"># who wants to write this over and over</span></span>
+<span id="cb1-9"></span>
+<span id="cb1-10">Constant <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mean</span>(h)                   <span class="co" style="color: #5E5E5E;"># estimate normalizing constant </span></span>
+<span id="cb1-11">post.mean <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">mean</span>(theta <span class="sc" style="color: #5E5E5E;">*</span> h)<span class="sc" style="color: #5E5E5E;">/</span><span class="fu" style="color: #4758AB;">mean</span>(h)  <span class="co" style="color: #5E5E5E;"># estimate posterior mean #+end_src</span></span></code></pre></div>
+</div>
+</section>
+<section id="at-the-command-prompt" class="level2">
+<h2 class="anchored" data-anchor-id="at-the-command-prompt">At the command prompt</h2>
+<p>After copy-pasting the above into an R session we can see what the results were with an additional</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1">Constant</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.3724711</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1">post.mean</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.334232</code></pre>
+</div>
+</div>
+<p>For this simple example we can actually calculate what the true values are (to machine precision) with the following: for the constant <img src="https://latex.codecogs.com/png.latex?C"> we get</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1">f <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(x) <span class="fu" style="color: #4758AB;">exp</span>(<span class="sc" style="color: #5E5E5E;">-</span><span class="fl" style="color: #AD0000;">0.5</span><span class="sc" style="color: #5E5E5E;">*</span>(x <span class="sc" style="color: #5E5E5E;">-</span> <span class="dv" style="color: #AD0000;">3</span>)<span class="sc" style="color: #5E5E5E;">^</span><span class="dv" style="color: #AD0000;">2</span>)<span class="sc" style="color: #5E5E5E;">/</span>(<span class="dv" style="color: #AD0000;">1</span> <span class="sc" style="color: #5E5E5E;">+</span> x<span class="sc" style="color: #5E5E5E;">^</span><span class="dv" style="color: #AD0000;">2</span>)</span>
+<span id="cb6-2"><span class="fu" style="color: #4758AB;">integrate</span>(f, <span class="sc" style="color: #5E5E5E;">-</span><span class="cn" style="color: #8f5902;">Inf</span>, <span class="cn" style="color: #8f5902;">Inf</span>)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>0.3416549 with absolute error &lt; 1.3e-07</code></pre>
+</div>
+</div>
+<p>so our estimate of <img src="https://latex.codecogs.com/png.latex?C"> overshot the mark by about 0.03, and in the posterior mean case we get</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1">g <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(x) x <span class="sc" style="color: #5E5E5E;">*</span> <span class="fu" style="color: #4758AB;">f</span>(x)</span>
+<span id="cb8-2"><span class="fu" style="color: #4758AB;">integrate</span>(g, <span class="sc" style="color: #5E5E5E;">-</span><span class="cn" style="color: #8f5902;">Inf</span>, <span class="cn" style="color: #8f5902;">Inf</span>)<span class="sc" style="color: #5E5E5E;">$</span>value <span class="sc" style="color: #5E5E5E;">/</span> <span class="fu" style="color: #4758AB;">integrate</span>(f, <span class="sc" style="color: #5E5E5E;">-</span><span class="cn" style="color: #8f5902;">Inf</span>, <span class="cn" style="color: #8f5902;">Inf</span>)<span class="sc" style="color: #5E5E5E;">$</span>value</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 2.285139</code></pre>
+</div>
+</div>
+<p>so our estimate of the posterior mean was around 0.05 too high. If we would like to get better estimates, we could increase the value of <code>m = 2000</code> to something higher (assuming these things are actually converging someplace).</p>
+</section>
+<section id="are-we-waiting-long-enough" class="level2">
+<h2 class="anchored" data-anchor-id="are-we-waiting-long-enough">Are we waiting long enough?</h2>
+<p>Our estimates were a little bit off; we might like to take a look at a plot to see how we’re doing – is this thing really converging like we’d expect? We can look at a running average plot to assess convergence. If the plot bounces around indeterminably, that’s bad, but if it settles down to a finite constant, that’s better. Here’s a quick way to check this out with <code>ggplot</code> graphics.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1">rc <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cumsum</span>(h)<span class="sc" style="color: #5E5E5E;">/</span><span class="fu" style="color: #4758AB;">seq_along</span>(h)          <span class="co" style="color: #5E5E5E;"># running mean of C </span></span>
+<span id="cb10-2">rpm <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">cumsum</span>(h <span class="sc" style="color: #5E5E5E;">*</span> theta)<span class="sc" style="color: #5E5E5E;">/</span><span class="fu" style="color: #4758AB;">cumsum</span>(h)    <span class="co" style="color: #5E5E5E;"># running posterior mean</span></span></code></pre></div>
+</div>
+<p>Now we plot the results.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><span class="fu" style="color: #4758AB;">library</span>(ggplot2)</span>
+<span id="cb11-2"><span class="fu" style="color: #4758AB;">library</span>(grid)</span>
+<span id="cb11-3">A <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">data.frame</span>(<span class="at" style="color: #657422;">iter =</span> <span class="dv" style="color: #AD0000;">1</span><span class="sc" style="color: #5E5E5E;">:</span>m, <span class="at" style="color: #657422;">rc =</span> rc, <span class="at" style="color: #657422;">rpm=</span>rpm)</span>
+<span id="cb11-4"><span class="fu" style="color: #4758AB;">library</span>(reshape)</span>
+<span id="cb11-5">A.short <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">melt</span>(A[<span class="dv" style="color: #AD0000;">3</span><span class="sc" style="color: #5E5E5E;">:</span><span class="dv" style="color: #AD0000;">200</span>, ], <span class="at" style="color: #657422;">id=</span><span class="st" style="color: #20794D;">"iter"</span>)</span>
+<span id="cb11-6">a <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">ggplot</span>(A.short, <span class="fu" style="color: #4758AB;">aes</span>(iter, value, <span class="at" style="color: #657422;">colour=</span>variable)) <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">geom_line</span>() <span class="sc" style="color: #5E5E5E;">+</span></span>
+<span id="cb11-7">      <span class="fu" style="color: #4758AB;">labs</span>(<span class="at" style="color: #657422;">title =</span> <span class="st" style="color: #20794D;">"First 200"</span>)</span>
+<span id="cb11-8">A.long <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">melt</span>(A, <span class="at" style="color: #657422;">id=</span><span class="st" style="color: #20794D;">"iter"</span>)</span>
+<span id="cb11-9">b <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="fu" style="color: #4758AB;">ggplot</span>(A.long, <span class="fu" style="color: #4758AB;">aes</span>(iter, value, <span class="at" style="color: #657422;">colour=</span>variable)) <span class="sc" style="color: #5E5E5E;">+</span> <span class="fu" style="color: #4758AB;">geom_line</span>() <span class="sc" style="color: #5E5E5E;">+</span></span>
+<span id="cb11-10">      <span class="fu" style="color: #4758AB;">labs</span>(<span class="at" style="color: #657422;">title =</span> <span class="st" style="color: #20794D;">"All 2000 iterations"</span>)</span>
+<span id="cb11-11"><span class="fu" style="color: #4758AB;">grid.newpage</span>()</span>
+<span id="cb11-12"><span class="fu" style="color: #4758AB;">pushViewport</span>(<span class="fu" style="color: #4758AB;">viewport</span>(<span class="at" style="color: #657422;">layout =</span> <span class="fu" style="color: #4758AB;">grid.layout</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="dv" style="color: #AD0000;">2</span>, <span class="at" style="color: #657422;">widths =</span> <span class="fu" style="color: #4758AB;">unit</span>(<span class="fu" style="color: #4758AB;">c</span>(<span class="dv" style="color: #AD0000;">3</span>,<span class="dv" style="color: #AD0000;">5</span>),<span class="st" style="color: #20794D;">"null"</span>))))</span>
+<span id="cb11-13">vplayout <span class="ot" style="color: #003B4F;">&lt;-</span> <span class="cf" style="color: #003B4F;">function</span>(x, y)</span>
+<span id="cb11-14"><span class="fu" style="color: #4758AB;">viewport</span>(<span class="at" style="color: #657422;">layout.pos.row =</span> x, <span class="at" style="color: #657422;">layout.pos.col =</span> y)</span>
+<span id="cb11-15"><span class="fu" style="color: #4758AB;">print</span>(a, <span class="at" style="color: #657422;">vp =</span> <span class="fu" style="color: #4758AB;">vplayout</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="dv" style="color: #AD0000;">1</span>))</span>
+<span id="cb11-16"><span class="fu" style="color: #4758AB;">print</span>(b, <span class="at" style="color: #657422;">vp =</span> <span class="fu" style="color: #4758AB;">vplayout</span>(<span class="dv" style="color: #AD0000;">1</span>, <span class="dv" style="color: #AD0000;">2</span>))</span></code></pre></div>
+<div class="cell-output-display">
+<div id="fig-yplot" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="https://gjkerns.github.io/posts/2011-08-27-estimate-normal-mean/index_files/figure-html/fig-yplot-1.png" class="img-fluid figure-img" width="672"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;1: Running averages for assessing convergence of the estimators.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+<p>In this example, the estimates look to be still unstable at around <code>m = 200</code>, but by the time we reach <code>m = 2000</code> they look to have pretty much settled down. Here we knew what the true values were, so we could tell immediately how well we were doing. On the battlefield we will not be so lucky. In general, with Monte Carlo estimates like these it is wise to take a look at some plots to judge the behavior of our estimators. If our plot looks more like the one on the left, then we should consider increasing the sample size. If our plot looks more like the one on the right, then maybe we would be satisfied with “close enough”. (We can always wait longer, tight purse-strings notwithstanding.)</p>
+</section>
+<section id="other-approaches" class="level2">
+<h2 class="anchored" data-anchor-id="other-approaches">Other approaches</h2>
+<p>When we were looking to estimate <img src="https://latex.codecogs.com/png.latex?C"> we noticed that the integrand was <em>something</em> times a Cauchy distribution. If we look again, we can see that the same integrand also looks like a <em>normal</em> distribution times <em>something</em>. So, another approach would be to simulate a bunch of normals and average the new <em>somethings</em>. Do we get the same answer (in the limit)?</p>
+<p>Yes, of course. It turns out, the approach simulating normals does a little bit better than the one simulating Cauchys, but they’re really pretty close. Check out chapter 4 of <a href="http://www.springer.com/statistics/statistical+theory+and+methods/book/978-0-387-21239-5">Monte Carlo Statistical Methods</a> for discussion on this.</p>
+</section>
+<section id="where-to-find-more" class="level2">
+<h2 class="anchored" data-anchor-id="where-to-find-more">Where to find more…</h2>
+<p>The above is a variant of an example we did in <a href="https://github.com/gjkerns/STAT5840">STAT 5840, Statistical Computing</a>. The entire course is available online at <a href="https://github.com/gjkerns/STAT5840">GitHub</a>. Go to the Downloads for a <code>.zip</code> file or <code>.tar.gz</code>. Or, if you have <a href="http://git-scm.com/">git</a> installed, you can get (git? har har) it all with</p>
+<pre><code>git clone git://github.com/gjkerns/STAT5840.git</code></pre>
+
+
+</section>
+
+ ]]></description>
+  <category>R</category>
+  <category>code</category>
+  <category>Bayesian</category>
+  <guid>https://gjkerns.github.io/posts/2011-08-27-estimate-normal-mean/index.html</guid>
+  <pubDate>Sat, 27 Aug 2011 04:00:00 GMT</pubDate>
+  <media:content url="https://gjkerns.github.io/posts/2011-08-27-estimate-normal-mean/fig-yplot-1.png" medium="image" type="image/png" height="103" width="144"/>
+</item>
+<item>
+  <title>Maiden Voyage</title>
+  <dc:creator>G. Jay Kerns</dc:creator>
+  <link>https://gjkerns.github.io/posts/2011-08-23-maiden/index.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<ul>
+<li><p><strong>What:</strong> I want this blog to be about statistics, plain and sample. No frills, no tomfoolery, just bare-boned statistics from beginning to end. Plus Emacs, ESS, Org-Mode, and R, but that goes without saying.</p></li>
+<li><p><strong>When:</strong> I’ve wanted to do this for a long time, but had as of yet convinced myself that I didn’t have time for it. A sabbatical coupled with the renewed energy of a <a href="http://www.warwick.ac.uk/statsdept/user-2011/">use R! conference</a> can change things considerably.</p></li>
+<li><p><strong>How:</strong> Emacs + Org mode + Jekyll + Github = Blog + R! After much fiddling and googling I have managed to figure out how to run a blog entirely through Emacs and Git. If you’d like to do the same I recommend reading <a href="http://orgmode.org/worg/org-tutorials/org-jekyll.html">here</a> and <a href="http://vitobotta.com/how-to-migrate-from-wordpress-to-jekyll/">here</a>, with liberal doses of <a href="http://blog.envylabs.com/2009/08/publishing-a-blog-with-github-pages-and-jekyll/">this</a> and <a href="https://github.com/mojombo/jekyll">that</a>. Ultimately, if you’d like to know how I do it then you can find the org-mode source code for this blog <a href="https://github.com/gjkerns/blog">here</a> and you can download the final result <a href="https://github.com/gjkerns/gjkerns.github.com">here</a> (which still is source code but is as close to final as possible).</p></li>
+</ul>
+<p>The bottom line: with this setup I can effortlessly do R code like this:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">10</span>)</span></code></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] -0.8417498  1.5661733  1.4517939  0.8075502 -1.3006587  1.4853693
+ [7]  0.0157239  1.1162398  1.4359540 -1.3781027</code></pre>
+</div>
+</div>
+<p>And can include plots like this:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1">x <span class="ot" style="color: #003B4F;">=</span> <span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">100</span>) </span>
+<span id="cb3-2">y <span class="ot" style="color: #003B4F;">=</span> <span class="fu" style="color: #4758AB;">rnorm</span>(<span class="dv" style="color: #AD0000;">100</span>)</span>
+<span id="cb3-3"><span class="fu" style="color: #4758AB;">plot</span>(y <span class="sc" style="color: #5E5E5E;">~</span> x)</span></code></pre></div>
+<div class="cell-output-display">
+<div id="fig-skiddaw" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<p><img src="https://gjkerns.github.io/posts/2011-08-23-maiden/index_files/figure-html/fig-skiddaw-1.png" class="img-fluid figure-img" width="672"></p>
+<p></p><figcaption class="figure-caption">Figure&nbsp;1: A plot to get things started.</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+<p>all housed inside a simple, dynamic text file that I can edit with <a href="http://www.gnu.org/software/emacs/">Emacs</a> and can version-control with <a href="http://git-scm.com/">git</a>. On top of all this, I get LaTeX formatting in HTML via <a href="http://www.mathjax.org/">MathJax</a>. Life is good.</p>
+
+
+
+ ]]></description>
+  <category>news</category>
+  <category>code</category>
+  <guid>https://gjkerns.github.io/posts/2011-08-23-maiden/index.html</guid>
+  <pubDate>Tue, 23 Aug 2011 04:00:00 GMT</pubDate>
+  <media:content url="https://gjkerns.github.io/posts/2011-08-23-maiden/skiddaw.png" medium="image" type="image/png" height="144" width="144"/>
+</item>
+</channel>
+</rss>

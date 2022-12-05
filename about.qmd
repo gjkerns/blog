@@ -6,14 +6,16 @@ about:
   links:
     - icon: twitter
       text: Twitter
-      href: https://twitter.com
+      href: https://twitter.com/gkerns
     - icon: linkedin
       text: LinkedIn
-      href: https://linkedin.com
+      href: https://www.linkedin.com/in/g-jay-kerns-9ab99111/
     - icon: github
       text: Github
-      href: https://github.com
-
+      href: https://github.com/gjkerns
+    - icon: github
+      text: Mastodon
+      href: https://mathstodon.xyz/@gjkerns
 ---
 
-About this blog
+This is a blog written by [me](https://gkerns.people.ysu.edu/).  It isn't meant as a political platform, personal diary, or much of anything more than my prattling on about topics that interest me in statistics, data science, and data analytics.

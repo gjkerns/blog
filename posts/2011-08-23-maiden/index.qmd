@@ -1,6 +1,6 @@
 ---
 title: "Maiden Voyage"
-description: "A mission statement, of sorts."
+description: "This is the first post. A mission statement, of sorts."
 author: "G. Jay Kerns"
 date: "2011-08-23"
 categories: [news, code]
